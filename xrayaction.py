@@ -35,8 +35,12 @@ from calibre.ptempfile import PersistentTemporaryFile
 from calibre.utils.filenames import shorten_components_to
 from calibre.utils.ipc.job import BaseJob
 from calibre_plugins.xray_generator.xray_ui import Ui_XRay
+from calibre.utils.config import JSONConfig
 
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
+
+prefs = JSONConfig('plugins/xray_generator')
+prefs.defaults['newFormat'] = True
 
 class XRayAction(InterfaceAction):
 
@@ -364,7 +368,9 @@ class XRayMixin(object):
         if id is not None:
             defaultXrayDir = self.db.get_custom_book_data ( id, 'xray.dir.xray');
 
-        dialog = StartDialog(self.gui, defaultShelfariUrl, defaultWikiUrl, defaultAliasesFile, defaultXrayDir)
+        defaultNewFormat = prefs['newFormat']    
+
+        dialog = StartDialog(self.gui, defaultShelfariUrl, defaultWikiUrl, defaultAliasesFile, defaultXrayDir, defaultNewFormat)
         result = dialog.exec_()
         if not result:
             return
@@ -396,8 +402,8 @@ class XRayMixin(object):
         if wikiUrl is not None and id is not None:
             self.db.add_custom_book_data ( id, 'xray.url.wikipedia', str(wikiUrl));
 
-        # TODO persist "new format" preference 
-
+        prefs['newFormat'] = newFormat
+        
         _ku.unpackBook(filename, unpackdir, dodump=True, dowriteraw=True)
 
         fn = _ku.fileNames (filename, unpackdir)
@@ -944,7 +950,7 @@ class ParserWithPosition(HTMLParser):
             self.lastWasP = False
 
 class StartDialog(QDialog, Ui_XRay):
-    def __init__(self,parent=None,shelfari=None,wiki=None,aliases=None,outputDir=None):
+    def __init__(self,parent=None,shelfari=None,wiki=None,aliases=None,outputDir=None,newFormat=None):
         QDialog.__init__(self,parent)
         self.parent=parent
         self.setupUi(self)
@@ -956,6 +962,8 @@ class StartDialog(QDialog, Ui_XRay):
             self.aliasesEdit.setText(aliases)
         if outputDir is not None:
             self.xrayDirEdit.setText(outputDir)
+        if newFormat is not None:
+            self.newFormatCheckbox.setChecked(newFormat)
         self.aliasBrowseButton.clicked.connect(self.onAliasBrowseButtonClicked)
         self.xrayBrowseButton.clicked.connect(self.onXrayBrowseButtonClicked)
         self.unpackBrowseButton.clicked.connect(self.onUnpackBrowseButtonClicked)
