@@ -915,7 +915,31 @@ class MobiHeader:
 
         if len(self.extra2) > 0:
             print "Extra data between Title and end of header, length %d" % len(self.extra2)
-            print  self.extra2.encode('hex')
+
+            # ART: massive hack to silence the output of this library somewhat
+            # Or in this case to cope with the fact we have a book with a massive block of zerod data
+            # which can be summarised more neatly rather than printing in full..
+            import sys
+            data = self.extra2.encode('hex')
+            supress = False
+            last = None
+            counter = 0
+            for d in data:
+                if d == last:
+                    counter += 1
+                    supress = True
+                elif counter != 0:
+                    sys.stdout.write("<repeats %u times>" % (counter))
+                    counter = 0
+                    supress = False
+                last = d
+                if not supress:
+                    sys.stdout.write(d)
+            if counter != 0:
+                sys.stdout.write("<repeats %u times>" % (counter))
+                counter = 0
+                supress = False
+            # /ART
             print ""
 
 
