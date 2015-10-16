@@ -116,7 +116,7 @@ class XRayAction(InterfaceAction):
                     ans = 'x'
                 return ans
             
-            self.xray_mixin.generate_xray(f, id)
+            self.xray_mixin.generate_xray(mi.title, f, id)
 
         if bad:
             bad = '\n'.join('%s'%(i,) for i in bad)
@@ -142,7 +142,7 @@ class XRayAction(InterfaceAction):
         if not unpackdir:
             return
         
-        self.xray_mixin.generate_xray(filename, None)
+        self.xray_mixin.generate_xray("specified file", filename, None)
 
 class XRayJob(BaseJob):
     
@@ -292,9 +292,9 @@ class XRayGenerator(Thread):
             except Error as e:
                 job.log_write ("Unexpected error clearing out temporary directory " + e)
         
-    def generate_xray(self, callback, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
+    def generate_xray(self, callback, title, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
 
-        description = _('Generating XRay for %s') % os.path.splitext(os.path.basename(xraydir))[0]
+        description = _('Generating XRay for %s') % (title)
         job = XRayJob(callback, description, self.job_manager, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
         self.job_manager.add_job(job)
         self.jobs.put(job)
@@ -317,7 +317,7 @@ class XRayMixin(object):
         if not hasattr(self.gui, 'xray_generator'):
             self.gui.xray_generator = XRayGenerator(self.gui.job_manager)
 
-    def generate_xray(self, filename, id):
+    def generate_xray(self, title, filename, id):
         from calibre.ebooks.metadata.meta import get_metadata
         from calibre.ebooks.metadata.mobi import MetadataUpdater
         from struct import unpack
@@ -414,8 +414,8 @@ class XRayMixin(object):
             mobidir = fn.mobi7dir
         rawml = os.path.join (mobidir, fn.getInputFileBasename() + '.rawml')
 
-        self.gui.xray_generator.generate_xray(Dispatcher(self.xray_generated), filename, xraydir, rawml, asin, db, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
-        self.gui.status_bar.show_message(_('Generating XRay for %s') % os.path.splitext(os.path.basename(xraydir))[0], 3000)
+        self.gui.xray_generator.generate_xray(Dispatcher(self.xray_generated), title, filename, xraydir, rawml, asin, db, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
+        self.gui.status_bar.show_message(_('Generating XRay for %s') % (title), 3000)
     
     def xray_generated(self, job):
         if job.failed:
