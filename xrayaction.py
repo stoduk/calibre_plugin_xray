@@ -495,7 +495,12 @@ class XRayBuilder(object):
         import sqlite3
         import codecs
         # remove the file before starting so that we don't try to try and old-format file as an sqlite file
-        os.remove(xrayfile)
+        try:
+            os.remove(xrayfile)
+        except OSError as e:
+            if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+                raise # re-raise exception if a different error occured
+
         con = sqlite3.connect(xrayfile)
 
         with con:
