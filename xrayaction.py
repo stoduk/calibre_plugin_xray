@@ -12,7 +12,7 @@ __license__ = 'GPL 3'
 __copyright__ = '2012-15, Matthew Wilson <matthew@mjwilson.demon.co.uk>'
 __docformat__ = 'restructuredtext en'
 
-import os, time, re
+import os, time, re, errno
 import tempfile, shutil
 import cStringIO
 from array import *
