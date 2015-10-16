@@ -247,6 +247,8 @@ class XRayGenerator(Thread):
             raise Exception(_('No XRay directory specified.'))
         if not asin:
             raise Exception(_('No ASIN specified.'))
+        if len(asin) != 10: # can I compare to the DB ID and say if that is the problem?
+            raise Exception(_('ASIN is invalid (should be 10 characters): %s' % (asin)))
         if not database:
             raise Exception(_('No information available to generate GUID.'))
         if not uniqid:
