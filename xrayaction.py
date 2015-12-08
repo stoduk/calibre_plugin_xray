@@ -558,11 +558,12 @@ class XRayBuilder(object):
                                 2, # 2 if character.descSrc == "shelfari" else 4,
                                 character.id ))
 
+                # ART: quick fix, this could be nicer (namedtuple at least)
                 for loc in character.locs:
                     cur.execute ( "insert into occurrence (entity, start, length) values (?, ?, ?)",
                         (character.id,
-                         loc[0],
-                         loc[1]));
+                         loc[0] + loc[2],
+                         loc[3]));
 
             for excerpt in data.excerpts:
                 cur.execute ( "insert into excerpt (id, start, length, image, related_entities, goto) values (?, ?, ?, null, ?, null);",
