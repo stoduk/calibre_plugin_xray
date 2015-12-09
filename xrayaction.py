@@ -602,42 +602,38 @@ class XRayBuilder(object):
         with open(xrayfile, 'wb') as xrayf:
             xrayf.write(json.dumps (asJson, separators=(',', ':')))
 
-class XRayTerm(object):
-    def __init__(self, text, url, id):
-        self.locs = []
-        self.searchFor = None
+class XRayEntity(object):
+    entity_idx = 1
+    def __init__(self, text, url, type):
         try:
-            self.url = url
-            self.id = id
-            self.term, self.desc = text.split (':', 1)
+            self.term, self.desc = map(lambda value: value.strip(), text.split(':', 1))
         except ValueError:
             self.term = text.strip()
-            self.desc = text.strip()
-
-    def addLoc (self, a, b, c, d):
-        self.locs.append ( [a,b,c,d] )
-
-    def addAliases (self, aliases):
-        self.aliases = aliases
-
-class XRayCharacter(object):
-    def __init__(self, text, url, id):
+            self.desc = self.term
+            
+        self.entity_type = type
         self.locs = []
+        self.searchFor = None
+        self.url = url
         self.aliases = []
-        self.searchFor = None
-        try:
-            self.url = url
-            self.id = id
-            self.term, self.desc = text.split (':', 1)
-        except ValueError:
-            self.term = text.strip()
-            self.desc = text.strip()
-
-    def addLoc (self, a, b, c, d):
-        self.locs.append ( [a,b,c,d] )
-
-    def addAliases (self, aliases):
+        
+        self.id = XRayEntity.entity_idx
+        XRayEntity.entity_idx += 1
+        
+    def addLoc(self, a, b, c, d):
+        self.locs.append([a, b, c, d])
+        
+    def addAliases(self, aliases):
         self.aliases = aliases
+        
+class XRayTerm(XRayEntity):
+    def __init__(self, text, url):
+        
+        super(XRayTerm, self).__init__(text, url, 2)
+
+class XRayCharacter(XRayEntity):
+    def __init__(self, text, url):
+        super(XRayCharacter, self).__init__(text, url, 1)
 
 class XRayData(object):
     def __init__(self):
@@ -654,7 +650,6 @@ class XRayData(object):
         response = urllib2.urlopen(str(shelfariUrl))
         shelHtml = response.read()
         shelDoc = html5lib.parse(shelHtml, treebuilder='lxml', namespaceHTMLElements=False)
-        idx = 1
 
         characters = CSSSelector("#WikiModule_Characters ul.li_6 li")
         a = CSSSelector("a")
@@ -663,8 +658,7 @@ class XRayData(object):
             links = a(character)
             if (len(links) > 0):
                 url = links[0].get("href")
-            self.characters.append ( XRayCharacter ("".join (character.itertext()), url, idx))
-            idx += 1
+            self.characters.append ( XRayCharacter ("".join (character.itertext()), url))
 
         settings = CSSSelector("#WikiModule_Settings ul.li_6 li")
         for setting in settings (shelDoc):
@@ -672,8 +666,7 @@ class XRayData(object):
             links = a(setting)
             if (len(links) > 0):
                 url = links[0].get("href")
-            self.topics.append ( XRayTerm ("".join (setting.itertext()), url, idx))
-            idx += 1
+            self.topics.append ( XRayTerm ("".join (setting.itertext()), url))
 
         glossary = CSSSelector("#WikiModule_Glossary ul.li_6 li")
         for gloss in glossary (shelDoc):
@@ -681,8 +674,7 @@ class XRayData(object):
             links = a(gloss)
             if (len(links) > 0):
                 url = links[0].get("href")
-            self.topics.append ( XRayTerm ("".join (gloss.itertext()), url, idx))
-            idx += 1
+            self.topics.append ( XRayTerm ("".join (gloss.itertext()), url))
 
         orgs = CSSSelector("#WikiModule_Organizations ul.li_6 li")
         for org in orgs (shelDoc):
@@ -690,8 +682,7 @@ class XRayData(object):
             links = a(org)
             if (len(links) > 0):
                 url = links[0].get("href")
-            self.topics.append ( XRayTerm ("".join (org.itertext()), url, idx))
-            idx += 1
+            self.topics.append ( XRayTerm ("".join (org.itertext()), url))
 
         #themes = CSSSelector("#WikiModule_Themes ul.li_6 li")
         #for theme in themes (shelDoc):
