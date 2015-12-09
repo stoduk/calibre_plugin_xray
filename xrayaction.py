@@ -668,14 +668,6 @@ class XRayData(object):
                 url = links[0].get("href")
             self.topics.append ( XRayTerm ("".join (setting.itertext()), url))
 
-        glossary = CSSSelector("#WikiModule_Glossary ul.li_6 li")
-        for gloss in glossary (shelDoc):
-            url = ''  # TODO default
-            links = a(gloss)
-            if (len(links) > 0):
-                url = links[0].get("href")
-            self.topics.append ( XRayTerm ("".join (gloss.itertext()), url))
-
         orgs = CSSSelector("#WikiModule_Organizations ul.li_6 li")
         for org in orgs (shelDoc):
             url = ''  # TODO default
@@ -683,6 +675,14 @@ class XRayData(object):
             if (len(links) > 0):
                 url = links[0].get("href")
             self.topics.append ( XRayTerm ("".join (org.itertext()), url))
+
+        glossary = CSSSelector("#WikiModule_Glossary ul.li_6 li")
+        for gloss in glossary (shelDoc):
+            url = ''  # TODO default
+            links = a(gloss)
+            if (len(links) > 0):
+                url = links[0].get("href")
+            self.topics.append ( XRayTerm ("".join (gloss.itertext()), url))
 
         #themes = CSSSelector("#WikiModule_Themes ul.li_6 li")
         #for theme in themes (shelDoc):
