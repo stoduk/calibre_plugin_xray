@@ -647,7 +647,12 @@ class XRayData(object):
     def readShelfari (self, shelfariUrl, job):
         import urllib2
 
-        response = urllib2.urlopen(str(shelfariUrl))
+        if False:
+            response = urllib2.urlopen(str(shelfariUrl))
+            shelHtml = response.read()
+        else:
+            shelHtml = open("/tmp/A-Christmas-Carol").read()
+
         shelHtml = response.read()
         shelDoc = html5lib.parse(shelHtml, treebuilder='lxml', namespaceHTMLElements=False)
 
