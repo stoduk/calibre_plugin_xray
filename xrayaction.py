@@ -12,7 +12,7 @@ __license__ = 'GPL 3'
 __copyright__ = '2012-15, Matthew Wilson <matthew@mjwilson.demon.co.uk>'
 __docformat__ = 'restructuredtext en'
 
-import os, time, re, errno
+import os, time, re, errno, io
 import tempfile, shutil
 import cStringIO
 from array import *
@@ -278,7 +278,7 @@ class XRayGenerator(Thread):
             job.notifications.put((0.50, "Read Shelfari"))
             job.consume_notifications()
 
-        data.processAliases (aliasFile)
+        data.processAliases (job, aliasFile)
         job.log_write ("Parsing book...\n")
         data.rawml (rawml, offset, job)
         job.notifications.put((0.75, "Parsed book"))
@@ -652,8 +652,6 @@ class XRayData(object):
             shelHtml = response.read()
         else:
             shelHtml = open("/tmp/A-Christmas-Carol").read()
-
-        shelHtml = response.read()
         shelDoc = html5lib.parse(shelHtml, treebuilder='lxml', namespaceHTMLElements=False)
 
         characters = CSSSelector("#WikiModule_Characters ul.li_6 li")
@@ -714,24 +712,33 @@ class XRayData(object):
             c.addAliases (aliases)
             self.characters.append (c)
 
-    def processAliases (self, aliasFile):
+    def processAliases (self, job, aliasFile):
         if aliasFile is not None and aliasFile != '':
             if os.path.exists(aliasFile):
-                with open(aliasFile, "r") as aliases:
+                job.log_write("Reading alias file %s\n" % (aliasFile))
+                # Windows app creates UTF-8-sig files, so cope with them
+                # (if the file has the optional/unnecessary \ufeff sig it will be removed, if it doesn't it works fine)
+                with io.open(aliasFile, "r", encoding='UTF-8-sig') as aliases:
                     for line in aliases:
                         line = line.rstrip()
                         pos = line.find('|')
                         if (pos > 0):
                             term = line[0:pos]
-                            a = line[pos+1:]
+                            a = line[pos+1:].strip()
+                            if len(a) == 0:
+                                job.log_write("No aliases found for %s, skip\n" % (term))
+                                continue
                             al = a.split (",")
+                            job.log_write("Adding alias for %s: %s\n" % (term, al))
                             self.addAliases (term, al)
 
             else:
-                print ("Writing aliases\n")
-                with open(aliasFile, "w") as aliases:
+                job.log_write ("Writing aliases\n")
+                with io.open(aliasFile, "w", encoding='UTF-8') as aliases:
                     for char in self.characters:
                         aliases.write (char.term + "\n")
+        else:
+            job.log_write("No file specified\n")
 
 
     # http://stackoverflow.com/questions/15343218/get-divs-html-content-with-lxml
