@@ -20,6 +20,7 @@ import html5lib
 from lxml.cssselect import CSSSelector
 from threading import Thread
 from Queue import Queue
+import httplib, socket # just for urllib2.urlopen() exceptions
 
 try:
     from PyQt4.Qt import Qt, QMenu, QFileDialog, QIcon, QPixmap, QMessageBox, QInputDialog, QDialog
@@ -689,8 +690,17 @@ class XRayData(object):
             shelHtml = open(fname)
         else:
             start_time = time.time()
-            response = urllib2.urlopen(str(shelfariUrl))
-            job.log_write("Fetched Shelfairi page in %u seconds" % (int(time.time() - start_time)))
+            try_count = 0
+            max_tries = 3
+            while try_count < max_tries:
+                try_count += 1
+                try:
+                    response = urllib2.urlopen(str(shelfariUrl))
+                    break
+                except (httplib.BadStatusLine, socket.timeout):
+                    job.log_write("Fetching Shelfari page failed - retry\n")
+                    
+            job.log_write("Fetched Shelfairi page in %u seconds after %s attempts\n" % (int(time.time() - start_time), try_count))
             shelHtml = response.read()
             if cache_dirname:
                 job.log_write("Saving Shelfari data for '%s'\n" % (bookid))
