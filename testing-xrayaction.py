@@ -20,6 +20,7 @@ import html5lib
 from lxml.cssselect import CSSSelector
 from threading import Thread
 from Queue import Queue
+from collections import namedtuple
 
 try:
     from PyQt4.Qt import Qt, QMenu, QFileDialog, QIcon, QPixmap, QMessageBox, QInputDialog, QDialog
@@ -35,8 +36,12 @@ from calibre.ptempfile import PersistentTemporaryFile
 from calibre.utils.filenames import shorten_components_to
 from calibre.utils.ipc.job import BaseJob
 from calibre_plugins.xray_generator.xray_ui import Ui_XRay
-from calibre_plugins.xray_generator.xray_config import prefs
+from calibre.utils.config import JSONConfig
+
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
+
+prefs = JSONConfig('plugins/xray_generator')
+prefs.defaults['newFormat'] = True
 
 class XRayAction(InterfaceAction):
 
@@ -139,33 +144,6 @@ class XRayAction(InterfaceAction):
             return
         
         self.xray_mixin.generate_xray("specified file", filename, None)
-        
-    def show_dialog(self):
-        
-        ##
-        ## ARTWTF - why is this here, what is it doing?  DemoDialog shouldn't be working
-        ## Not being called ATM - but I probably want ot be able to call config from my dialog, so need to replicate this basics..
-        ##
-        
-        # The base plugin object defined in __init__.py
-        base_plugin_object = self.interface_action_base_plugin
-        # Show the config dialog
-        # The config dialog can also be shown from within
-        # Preferences->Plugins, which is why the do_user_config
-        # method is defined on the base plugin class
-        do_user_config = base_plugin_object.do_user_config
-    
-        # self.gui is the main calibre GUI. It acts as the gateway to access
-        # all the elements of the calibre user interface, it should also be the
-        # parent of the dialog
-        d = DemoDialog(self.gui, self.qaction.icon(), do_user_config)
-        d.show()
-        
-    def apply_settings(self):
-        #
-        # Nothing to do currently, 'prefs' will be updated already
-        #
-        print(prefs) # ARTHACK: this dumps to syslog, get rid of this once debugged
 
 class XRayJob(BaseJob):
     
@@ -303,10 +281,11 @@ class XRayGenerator(Thread):
 
         data.processAliases (job, aliasFile)
         job.log_write ("Parsing book...\n")
+        starttime = time.time()
         data.rawml (rawml, offset, job)
         job.notifications.put((0.75, "Parsed book"))
         job.consume_notifications()
-        job.log_write ("Parsed.\n")
+        job.log_write ("Parsed book in %s s.\n" % (time.time() - starttime))
         self.xray_builder.write_xray(filename, xraydir, asin, database, uniqid, data, job, newFormat)
 
         if tempdir is not None:
@@ -560,8 +539,10 @@ class XRayBuilder(object):
             personCount = 0
             termCount = 0
 
+            for character in data.characters + data.topics:
+                job.log_write("%s %s\n" % (character.id, character.term))
             for idx, character in enumerate(data.characters + data.topics):
-
+                job.log_write("%s %s\n" % (character.id, character.term))
                 charName = character.term
                 if isinstance(character, XRayCharacter):
                     personCount += 1
@@ -649,13 +630,6 @@ class XRayEntity(object):
     def addAliases(self, aliases):
         self.aliases = aliases
         
-    @classmethod    
-    def reset(cls):
-        """
-        Reset the Entity object between parsing books - required to reset the starting ID for entities
-        """
-        XRayEntity.entity_idx = 1
-        
 class XRayTerm(XRayEntity):
     def __init__(self, text, url):
         
@@ -673,34 +647,15 @@ class XRayData(object):
         self.wikiText = ''
         self.wikiUrl = ''
         self.chapters = []
-        self.shelfari_regex = re.compile("https?://(?:.*\.)?shelfari.com/books/([0-9]*)(?:/?.*)")
 
     def readShelfari (self, shelfariUrl, job):
         import urllib2
 
-        XRayEntity.reset()
-        
-        cache_dirname = prefs['cacheDir']
-        res = self.shelfari_regex.match(shelfariUrl)
-        bookid = None if not res.groups else res.groups()[0]
-        fname = None if not (cache_dirname and bookid) else os.path.join(cache_dirname, bookid)
-        if cache_dirname and os.path.isdir(cache_dirname) and res and os.path.isfile(fname):
-            job.log_write("Loading Shelfari data from cache for '%s'\n" % (bookid))
-            shelHtml = open(fname)
-        else:
-            start_time = time.time()
+        if False:
             response = urllib2.urlopen(str(shelfariUrl))
-            job.log_write("Fetched Shelfairi page in %u seconds" % (int(time.time() - start_time)))
             shelHtml = response.read()
-            if cache_dirname:
-                job.log_write("Saving Shelfari data for '%s'\n" % (bookid))
-                if not os.path.exists(cache_dirname):
-                    os.mkdir(cache_dirname)
-                with open(fname, 'w') as fd:
-                    fd.write(shelHtml)
-            else:
-                job.log_write("Shelfari data not being saved, no cache directory specified in config\n")
-
+        else:
+            shelHtml = open("/tmp/A-Christmas-Carol").read()
         shelDoc = html5lib.parse(shelHtml, treebuilder='lxml', namespaceHTMLElements=False)
 
         characters = CSSSelector("#WikiModule_Characters ul.li_6 li")
@@ -727,7 +682,7 @@ class XRayData(object):
             if (len(links) > 0):
                 url = links[0].get("href")
             self.topics.append ( XRayTerm ("".join (org.itertext()), url))
-
+            
         glossary = CSSSelector("#WikiModule_Glossary ul.li_6 li")
         for gloss in glossary (shelDoc):
             url = ''  # TODO default
@@ -799,8 +754,9 @@ class XRayData(object):
         return buildString
 
     def rawml (self, rawml, offset, job):
-
+        starttime = time.time()
         from lxml import etree
+        job.log_write("post import %s" % (time.time() - starttime))
 
         self.end = os.path.getsize(str(rawml))
 
@@ -817,11 +773,13 @@ class XRayData(object):
 
         rawmlFile.close();
 
+        job.log_write("post import1 %s\n" % (time.time() - starttime))
         # TODO unnecessary duplication of file reading
         rawmlFile = open(rawml)
         rawMlAsString = rawmlFile.read()
         rawmlFile.close()
 
+        job.log_write("post import2 %s\n" % (time.time() - starttime))
         try:
             locOffset = int(offset)
         except ValueError:
@@ -863,6 +821,7 @@ class XRayData(object):
         # TODO optimise this
         parser = ParserWithPosition()
         parser.feed(rawMlAsString)
+        job.log_write("post parser.feed %s\n" % (time.time() - starttime))
 
         from lxml import html
 
@@ -872,6 +831,7 @@ class XRayData(object):
             else:
                 paras = raw.xpath ("//p")
 
+            starttime = time.time()
             ix=0
             excerptID = 0
             for p in paras:
@@ -883,7 +843,8 @@ class XRayData(object):
                 lenQuote = len(ptext)
                 location = parser.ppos[ix]
                 ix=ix+1
-                job.log_write("Processing paragraph " + str(ix) + "\n");
+                job.log_write("*** Processing paragraph " + str(ix) + "; location %s; lenQuote %s " % (location, lenQuote) + "\n");
+                job.log_write(ptext + "\n")
 
                 # if (location < srl || location > erl) continue; //Skip paragraph if outside chapter range
                 for character in self.characters + self.topics:
@@ -904,6 +865,7 @@ class XRayData(object):
                         # Ensure non-word characters before and after match.
                         character.searchFor = re.compile('(^|\W)(' + "|".join ( [ re.escape(a) for a in searchItems ] )  + ')(\W|$)', flags=re.IGNORECASE )
                         searchFor = character.searchFor
+                        job.log_write("Regex compiled: %s (%s) %s\n" % (character.term, character.id, searchFor.pattern))
 
                     match = searchFor.search (ptext)
                     if match is not None:
@@ -914,7 +876,7 @@ class XRayData(object):
                         lengthLimit = 135
                         if (shortEx and (locHighlight + lenHighlight > lengthLimit)):
 
-                            #job.log_write("Excerpt is too long for character " + charName + " location="+str(location) + " shortEx="+ str(shortEx) + " locHighlight="+str(locHighlight) + " lenHighlight="+str(lenHighlight) + "\n")
+                            job.log_write("Excerpt is too long for character " + charName + " location="+str(location) + " shortEx="+ str(shortEx) + " locHighlight="+str(locHighlight) + " lenHighlight="+str(lenHighlight) + "\n")
 
                             inner = (p.text or '') + ''.join([html.tostring(child) for child in p.iterdescendants()]) # innerHTML
                             start = locHighlight
@@ -942,9 +904,11 @@ class XRayData(object):
 
                             # Only add new locs if shorter excerpt was found
                             if (newLoc >= 0):
+                                job.log_write("--> Adding character %s (%s) in new location: %s %s %s %s\n" % (character.term, character.id, newLoc+locOffset, newLenQuote, newLocHighlight, lenHighlight))
                                 character.addLoc (newLoc + locOffset, newLenQuote, newLocHighlight, lenHighlight)
                                 continue
 
+                        job.log_write("--> Adding character %s (%s) location: %s %s %s %s\n" % (character.term, character.id, location+locOffset, lenQuote, locHighlight, lenHighlight))
                         character.addLoc (location+locOffset, lenQuote, locHighlight, lenHighlight)
 
                         # Either add a new excerpt, or add a new entity to an existing excerpt
@@ -966,6 +930,7 @@ class XRayData(object):
                     #job.log_write("percent="+str(pct) + "\n");
                     #job.notifications.put(pct, "Parsing...")
                     #job.consume_notifications()
+            job.log_write("Finished parsing, took %s s\n" % (time.time() - starttime))
 
         except IndexError:
             import traceback
