@@ -35,12 +35,8 @@ from calibre.ptempfile import PersistentTemporaryFile
 from calibre.utils.filenames import shorten_components_to
 from calibre.utils.ipc.job import BaseJob
 from calibre_plugins.xray_generator.xray_ui import Ui_XRay
-from calibre.utils.config import JSONConfig
-
+from calibre_plugins.xray_generator.xray_config import prefs
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
-
-prefs = JSONConfig('plugins/xray_generator')
-prefs.defaults['newFormat'] = True
 
 class XRayAction(InterfaceAction):
 
@@ -143,6 +139,33 @@ class XRayAction(InterfaceAction):
             return
         
         self.xray_mixin.generate_xray("specified file", filename, None)
+        
+    def show_dialog(self):
+        
+        ##
+        ## ARTWTF - why is this here, what is it doing?  DemoDialog shouldn't be working
+        ## Not being called ATM - but I probably want ot be able to call config from my dialog, so need to replicate this basics..
+        ##
+        
+        # The base plugin object defined in __init__.py
+        base_plugin_object = self.interface_action_base_plugin
+        # Show the config dialog
+        # The config dialog can also be shown from within
+        # Preferences->Plugins, which is why the do_user_config
+        # method is defined on the base plugin class
+        do_user_config = base_plugin_object.do_user_config
+    
+        # self.gui is the main calibre GUI. It acts as the gateway to access
+        # all the elements of the calibre user interface, it should also be the
+        # parent of the dialog
+        d = DemoDialog(self.gui, self.qaction.icon(), do_user_config)
+        d.show()
+        
+    def apply_settings(self):
+        #
+        # Nothing to do currently, 'prefs' will be updated already
+        #
+        print(prefs) # ARTHACK: this dumps to syslog, get rid of this once debugged
 
 class XRayJob(BaseJob):
     
