@@ -9,6 +9,7 @@ from calibre.utils.config import JSONConfig
 prefs = JSONConfig('plugins/xray_generator')
 prefs.defaults['newFormat'] = True
 prefs.defaults['cacheDir'] = None
+prefs.defaults['autoExpandAliases'] = True
 
 class ConfigWidget(QWidget):
 
@@ -17,11 +18,9 @@ class ConfigWidget(QWidget):
         self.l = QGridLayout()
         self.setLayout(self.l)
 
-        self.label = QLabel('Generate &new format data (SQLite3)')
-        self.l.addWidget(self.label, 0, 0, 1, 1)
-
+        self.newFormatCheckboxLabel = QLabel('Generate &new format data (SQLite3)')
+        self.l.addWidget(self.newFormatCheckboxLabel, 0, 0, 1, 1)
         self.newFormatCheckbox = QCheckBox(self)
-        self.newFormatCheckbox.setObjectName("newFormatCheckbox")
         self.l.addWidget(self.newFormatCheckbox, 0, 1, 1, 1)
         self.newFormatCheckbox.setChecked(prefs['newFormat'])
 
@@ -31,7 +30,15 @@ class ConfigWidget(QWidget):
         self.cacheDirEdit = QLineEdit(self)
         self.l.addWidget(self.cacheDirEdit, 1, 1, 1, 1)
         self.cacheDirEdit.setText(prefs['cacheDir'])
+        
+        self.autoExpandAliasesLabel = QLabel('Auto-generate aliases from character names')
+        self.l.addWidget(self.autoExpandAliasesLabel, 2, 0, 1, 1)
+        self.autoExpandAliasesCheckbox = QCheckBox(self)
+        self.l.addWidget(self.autoExpandAliasesCheckbox, 2, 1, 1, 1)
+        self.autoExpandAliasesCheckbox.setChecked(prefs['autoExpandAliases'])
+
 
     def save_settings(self):
         prefs['newFormat'] = self.newFormatCheckbox.isChecked()
         prefs['cacheDir'] = unicode(self.cacheDirEdit.text())
+        prefs['autoExpandAliases'] = self.autoExpandAliasesCheckbox.isChecked()

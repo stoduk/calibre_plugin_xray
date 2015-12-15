@@ -38,6 +38,7 @@ from calibre.utils.ipc.job import BaseJob
 from calibre_plugins.xray_generator.xray_ui import Ui_XRay
 from calibre_plugins.xray_generator.xray_config import prefs
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
+from calibre_plugins.xray_generator.xray_utils import OrderedDefaultdict
 
 class XRayAction(InterfaceAction):
 
@@ -277,6 +278,8 @@ class XRayGenerator(Thread):
             raise Exception(_('No ASIN specified.'))
         if len(asin) != 10: # can I compare to the DB ID and say if that is the problem?
             raise Exception(_('ASIN is invalid (should be 10 characters): %s' % (asin)))
+        if asin[0] != 'B':
+            raise Exception(_('ASIN is invalid (Kindle E-books look like B012345678)'))
         if not database:
             raise Exception(_('No information available to generate GUID.'))
         if not uniqid:
@@ -648,7 +651,7 @@ class XRayEntity(object):
         self.locs.append([a, b, c, d])
         
     def addAliases(self, aliases):
-        self.aliases = aliases
+        self.aliases.extend(aliases)
         
     @classmethod    
     def reset(cls):
@@ -667,6 +670,9 @@ class XRayCharacter(XRayEntity):
         super(XRayCharacter, self).__init__(text, url, 1)
 
 class XRayData(object):
+    honorifics = "Mr Mrs Ms Miss Master Sir Madam Lord Dame Lady Prof Professor Doctor Dr Father Reverend".split()
+    honorifics.extend([x + "." for x in honorifics])
+    
     def __init__(self):
         self.characters = []
         self.excerpts = []
@@ -675,6 +681,7 @@ class XRayData(object):
         self.wikiUrl = ''
         self.chapters = []
         self.shelfari_regex = re.compile("https?://(?:.*\.)?shelfari.com/books/([0-9]*)(?:/?.*)")
+        self.aka_regex = re.compile("(.*) +\(aka.? (.*)\)")
 
     def readShelfari (self, shelfariUrl, job):
         import urllib2
@@ -771,6 +778,113 @@ class XRayData(object):
             c.addAliases (aliases)
             self.characters.append (c)
 
+    @staticmethod
+    def fullname_to_possible_aliases(fullname):
+        """
+        Given a full name ("{Title} ChristianName {Middle Names} {Surname}"), return a list of possible aliases
+        
+        ie. Title Surname, ChristianName Surname, Title ChristianName, {the full name}
+        
+        The returned aliases are in the order they should match
+        """
+        aliases = []
+        aliases.append(fullname)
+        
+        parts = fullname.split()
+        
+        if parts[0] in XRayData.honorifics:
+            title = parts.pop(0)
+        else:
+            title = None
+            
+        if len(parts) >= 2:
+            # Assume: {Title} Firstname {Middlenames} Lastname
+            # Already added the full form, also add Title Lastname, and for some Title Firstname
+            surname = parts.pop() # This will cover double barrel surnames, we split on whitespace only
+            christian_name = parts.pop(0)
+            middlenames = parts
+            
+            if title:
+                aliases.append("%s %s" % (title, surname))
+                if title in "Lord":
+                    aliases.append("%s %s" % (title, christian_name))
+            aliases.append(christian_name)
+            aliases.append(surname)   
+        elif title:
+            # Odd, but got Title Name (eg. Lord Buttsworth), so see if we can alias
+            aliases.append(parts[0])
+        else:
+            # We've got no title, so just a single word name.  No alias needed
+            pass
+        return aliases
+    def auto_expand_aliases(self, job):
+        #
+        # Do all easy expansion - but check  to make sure what we
+        # are adding is unique
+        #
+        # eg. if we have "Sir Richard Branson", we can expand to
+        # Sir Branson, Sir Richard, Richard Branson.  But make sure
+        # there isn't a second Sir Branson/Sir Richard first.
+        #
+        # We can also add just surnames as a last resort alias, but
+        # only if they are unique (in the Reacher novels, "Reacher"
+        # nearly always refers to Jack Reacher, but where there are
+        # other Reacher family members we can't guess this automatically)
+        #
+        
+        #
+        # ARTTODO: if we have a character name with akas we could just replace it with the right thing
+        # (as the book is never going to have eg. "Bob Hoskins (aka Bobby)" in it..
+        #
+        if len(set(self.characters)) != len(self.characters):
+            job.log_write("ERROR: have probable duplicate characters (%s vs. %s)")
+            return
+        
+        potential_aliases = OrderedDefaultdict(list)
+        
+        for char in self.characters:
+            name = char.term
+            if "(aka" in name:
+                # Some Name (aka othername1, othername2)
+                res = self.aka_regex.match(name)
+                if not res:
+                    jog.log_write("ERROR: name looked like having AKA but matching failed: %s\n" % (name))
+                    continue
+                real_name, aliases = res.groups()
+                aliases = [x.strip() for x in aliases.split(",")]
+                
+                # char.term looks like "Bob Hoskins (aka Rob)", so replace it with a more suitable name - just the real_name
+                char.term = real_name
+                
+                real_name_aliases = self.fullname_to_possible_aliases(real_name)
+                for found_alias in real_name_aliases:
+                    potential_aliases[found_alias].append(char)
+                for alias in aliases:
+                    for found_alias in self.fullname_to_possible_aliases(alias):
+                        if not found_alias in real_name_aliases:
+                            # If we have "Jane Marriedname (aka Jane Maidenname)" we don't want to consider
+                            # the two "Jane" too be clashing, and exclude them later - so skip one now
+                            # (and only exclude if it clashes with a separate character)
+                            # ARTTBD - how much do we care about the ordering here?  Could just create a set (to get uniqueness) then sort by longest first
+                            potential_aliases[found_alias].append(char)
+                continue
+            
+            if "/" in name or "\\" in name:
+                job.log_write("ERROR: skippping strangely formed name or name with poorly formed akas: %s\n" % (name))
+                continue # Should return to make it clearer things failed hard?
+            
+            for alias in self.fullname_to_possible_aliases(name):
+                if alias != name:
+                    potential_aliases[alias].append(char)
+        
+        for alias in potential_aliases:
+            if len(potential_aliases[alias]) == 1:
+                char = potential_aliases[alias][0]
+                job.log_write("Unique alias: %s for %s\n" % (alias, potential_aliases[alias][0].term))
+                char.addAliases([alias])
+            else:
+                job.log_write("INFO: Duplicate alias, ignore both: [%s] for %s\n" % (alias, ",".join([x.term for x in potential_aliases[alias]])))
+                                    
     def processAliases (self, job, aliasFile):
         if aliasFile is not None and aliasFile != '':
             if os.path.exists(aliasFile):
@@ -792,12 +906,15 @@ class XRayData(object):
                             self.addAliases (term, al)
 
             else:
+                if prefs['autoExpandAliases']:
+                    self.auto_expand_aliases(job)
+                                                
                 job.log_write ("Writing aliases\n")
                 with io.open(aliasFile, "w", encoding='UTF-8') as aliases:
                     for char in self.characters:
-                        aliases.write (char.term + "\n")
+                        aliases.write("%s|%s\n" % (char.term, ",".join(char.aliases)))
         else:
-            job.log_write("No file specified\n")
+            job.log_write("No alias file specified\n")
 
 
     # http://stackoverflow.com/questions/15343218/get-divs-html-content-with-lxml
