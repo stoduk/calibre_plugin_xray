@@ -12,7 +12,7 @@ __license__ = 'GPL 3'
 __copyright__ = '2012-15, Matthew Wilson <matthew@mjwilson.demon.co.uk>'
 __docformat__ = 'restructuredtext en'
 
-import os, time, re, errno, io
+import os, time, re, errno, io, sys
 import tempfile, shutil
 import cStringIO
 from array import *
@@ -431,7 +431,12 @@ class XRayMixin(object):
 
         prefs['newFormat'] = newFormat
         
-        _ku.unpackBook(filename, unpackdir, dodump=True, dowriteraw=True)
+        orig_stdout, sys.stdout = sys.stdout, open(os.devnull, 'w')
+        orig_stderr, sys.stderr = sys.stderr, open(os.devnull, 'w')
+        try:
+            _ku.unpackBook(filename, unpackdir, dodump=True, dowriteraw=True)
+        finally:
+            sys.stdout, sys.stderr = orig_stdout, orig_stderr
 
         fn = _ku.fileNames (filename, unpackdir)
         k8dir = os.path.join (unpackdir, 'mobi8')
@@ -1010,7 +1015,6 @@ class XRayData(object):
                 lenQuote = len(ptext)
                 location = parser.ppos[ix]
                 ix=ix+1
-                job.log_write("Processing paragraph " + str(ix) + "\n");
 
                 # if (location < srl || location > erl) continue; //Skip paragraph if outside chapter range
                 for character in self.characters + self.topics:
