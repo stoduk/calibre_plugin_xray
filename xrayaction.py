@@ -636,18 +636,28 @@ class XRayBuilder(object):
 
 class XRayEntity(object):
     entity_idx = 1
+    aka_regex = re.compile("(.*) +\(aka.? (.*)\)")
+    
     def __init__(self, text, url, type):
         try:
             self.term, self.desc = map(lambda value: value.strip(), text.split(':', 1))
         except ValueError:
             self.term = text.strip()
             self.desc = self.term
-            
+        
+        # If data is coming from Shelfari then a name in the form "Jane McGuiness (aka Jane Maidenname)"
+        # will be split in to the real name (stored in self.term) and the list of aliases (stored in self.unprocessed_aliases)
+        # If we later auto-generate aliases (vs. the user providing these in a file) then the unprocessed aliases will be 
+        # converted to a full list of aliases (eg. (Jane McGuiness), Jane Maidenname, Jane)
+        self.term, self.unprocessed_aliases = self.parse_aliases_from_name(self.term)
+
+        print(text, self.term, self.unprocessed_aliases)
+        
         self.entity_type = type
         self.locs = []
         self.searchFor = None
         self.url = url
-        self.aliases = []
+        self.aliases = [] # Aliases that have either come from Shelfari and been verified, or from user via aliases file
         
         self.id = XRayEntity.entity_idx
         XRayEntity.entity_idx += 1
@@ -663,7 +673,28 @@ class XRayEntity(object):
         """
         Reset the Entity object between parsing books - required to reset the starting ID for entities
         """
-        XRayEntity.entity_idx = 1
+        cls.entity_idx = 1
+    @classmethod
+    def parse_aliases_from_name(cls, name):
+        #
+        # Given a name return a tuple of (real_name, [aliases])
+        #
+        # A name with aliases will be of the form "John Everyman (aka Jonny)" - hence ("John Everyman", ["Jonny"]) will be returned.
+        #
+        # A name without aliases will be returned as is - ie. "John Onename" -> ("John Onename", [])
+        #
+        real_name = name
+        aliases = []
+        
+        if "(aka" in name:
+            # Some Name (aka othername1, othername2)
+            res = cls.aka_regex.match(name)
+            if not res:
+                jog.log_write("ERROR: name looked like having AKA but matching failed: %s\n" % (name))
+            else:
+                real_name, aliases = res.groups()
+                aliases = [x.strip() for x in aliases.split(",")]
+        return (real_name, aliases)
         
 class XRayTerm(XRayEntity):
     def __init__(self, text, url):
@@ -686,7 +717,6 @@ class XRayData(object):
         self.wikiUrl = ''
         self.chapters = []
         self.shelfari_regex = re.compile("https?://(?:.*\.)?shelfari.com/books/([0-9]*)(?:/?.*)")
-        self.aka_regex = re.compile("(.*) +\(aka.? (.*)\)")
 
     def readShelfari (self, shelfariUrl, job):
         import urllib2
@@ -822,6 +852,7 @@ class XRayData(object):
             # We've got no title, so just a single word name.  No alias needed
             pass
         return aliases
+
     def auto_expand_aliases(self, job):
         #
         # Do all easy expansion - but check  to make sure what we
@@ -836,10 +867,9 @@ class XRayData(object):
         # nearly always refers to Jack Reacher, but where there are
         # other Reacher family members we can't guess this automatically)
         #
-        
-        #
-        # ARTTODO: if we have a character name with akas we could just replace it with the right thing
-        # (as the book is never going to have eg. "Bob Hoskins (aka Bobby)" in it..
+        # Note: when the XRayCharacter was created the aka parsing was done
+        # (ie. "John Smith (aka Jonno, Jonny)" was stored as 
+        # self.name="John Smith" and self.unprocessed_aliases=["Jonno", "Jonny"])
         #
         if len(set(self.characters)) != len(self.characters):
             job.log_write("ERROR: have probable duplicate characters (%s vs. %s)")
@@ -849,38 +879,23 @@ class XRayData(object):
         
         for char in self.characters:
             name = char.term
-            if "(aka" in name:
-                # Some Name (aka othername1, othername2)
-                res = self.aka_regex.match(name)
-                if not res:
-                    jog.log_write("ERROR: name looked like having AKA but matching failed: %s\n" % (name))
-                    continue
-                real_name, aliases = res.groups()
-                aliases = [x.strip() for x in aliases.split(",")]
-                
-                # char.term looks like "Bob Hoskins (aka Rob)", so replace it with a more suitable name - just the real_name
-                char.term = real_name
-                
-                real_name_aliases = self.fullname_to_possible_aliases(real_name)
-                for found_alias in real_name_aliases:
-                    potential_aliases[found_alias].append(char)
-                for alias in aliases:
-                    for found_alias in self.fullname_to_possible_aliases(alias):
-                        if not found_alias in real_name_aliases:
-                            # If we have "Jane Marriedname (aka Jane Maidenname)" we don't want to consider
-                            # the two "Jane" too be clashing, and exclude them later - so skip one now
-                            # (and only exclude if it clashes with a separate character)
-                            # ARTTBD - how much do we care about the ordering here?  Could just create a set (to get uniqueness) then sort by longest first
-                            potential_aliases[found_alias].append(char)
-                continue
-            
             if "/" in name or "\\" in name:
                 job.log_write("ERROR: skippping strangely formed name or name with poorly formed akas: %s\n" % (name))
                 continue # Should return to make it clearer things failed hard?
-            
-            for alias in self.fullname_to_possible_aliases(name):
+  
+            real_name_aliases = self.fullname_to_possible_aliases(name)
+            for alias in real_name_aliases:
                 if alias != name:
                     potential_aliases[alias].append(char)
+            for alias in char.unprocessed_aliases:
+                for found_alias in self.fullname_to_possible_aliases(alias):
+                    if not found_alias in real_name_aliases:
+                        # If we have "Jane Marriedname (aka Jane Maidenname)" we don't want to consider
+                        # the two "Jane" too be clashing, and exclude them later - so skip one now
+                        # (and only exclude if it clashes with a separate character)
+                        # ARTTBD - how much do we care about the ordering here?  Could just create a set (to get uniqueness) then sort by longest first
+                        potential_aliases[found_alias].append(char)
+            char.unprocessed_aliases = []
         
         for alias in potential_aliases:
             if len(potential_aliases[alias]) == 1:
