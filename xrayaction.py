@@ -40,6 +40,48 @@ from calibre_plugins.xray_generator.xray_config import prefs
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
 from calibre_plugins.xray_generator.xray_utils import OrderedDefaultdict
 
+class XRayLogfile(object):
+    #
+    # Wrapper object for logging - but can either point to a file-type object, or can be a no-op dummy.
+    #
+    # This lets us litter the code with calls to eg. logfile.write() without having to care if they do anything
+    def __init__(self, logfile):
+        self.logfile, self.fd = None, None
+        
+        self.switch_logfile(logfile)
+    def write(self, data):
+        if self.fd:
+            self.fd.write(data)
+    def writeln(self, data):
+        #
+        # A convenience function, prints 'data' followed by a newline.
+        #
+        if self.fd:
+            self.fd.write(data)
+            self.fd.write("\n")
+    def close(self):
+        if self.fd:
+            self.fd.close()
+    def flush(self):
+        if self.fd:
+            self.fd.flush()
+    def switch_logfile(self, new_logfile):
+        #
+        # Switch between the current logfile and a new one.  
+        #
+        # Both can be either the name of a file or an empty string 
+        # (an empty string equates to no logging, in which case
+        # XRayLogfile will just throw the logging away silently)
+        #
+        if self.fd:
+            self.fd.close()
+        self.logfile = new_logfile
+        if new_logfile:
+            self.fd = open(self.logfile, "a")
+        else:
+            self.fd = None
+logfile = XRayLogfile(prefs["logfile"])
+
 class XRayAction(InterfaceAction):
 
     name = 'XRay'
@@ -165,9 +207,11 @@ class XRayAction(InterfaceAction):
         
     def apply_settings(self):
         #
-        # Nothing to do currently, 'prefs' will be updated already
+        # 'prefs' will be updated for us, so for most options there is nothing to do - we'll just start using the new pref
         #
         print(prefs) # ARTHACK: this dumps to syslog, get rid of this once debugged
+
+        logfile.switch_logfile(prefs["logfile"])
 
 class XRayJob(BaseJob):
     
@@ -650,8 +694,6 @@ class XRayEntity(object):
         # If we later auto-generate aliases (vs. the user providing these in a file) then the unprocessed aliases will be 
         # converted to a full list of aliases (eg. (Jane McGuiness), Jane Maidenname, Jane)
         self.term, self.unprocessed_aliases = self.parse_aliases_from_name(self.term)
-
-        print(text, self.term, self.unprocessed_aliases)
         
         self.entity_type = type
         self.locs = []
@@ -1024,13 +1066,17 @@ class XRayData(object):
             for p in paras:
                 # TODO skip if chapter empty
 
-                ptext = (p.text or '') + ''.join([html.tostring(child) for child in p.iterdescendants()])
+                ptext = (p.text or '') + ''.join([html.tostring(child, encoding='utf-8') for child in p.iterdescendants()])
+                ptext_bytestream = ptext.encode('utf-8')
                 #job.log_write(str(ix) + ":" + ptext + "\n")
 
                 lenQuote = len(ptext)
                 location = parser.ppos[ix]
                 ix=ix+1
 
+                logfile.writeln("ptext: '%s'"  % (ptext))
+                logfile.writeln("ptext: '%s'"  % (repr(ptext)))
+    
                 # if (location < srl || location > erl) continue; //Skip paragraph if outside chapter range
                 for character in self.characters + self.topics:
 
@@ -1053,9 +1099,25 @@ class XRayData(object):
 
                     match = searchFor.search (ptext)
                     if match is not None:
-                        locHighlight = match.start(2)
+                        #
+                        # If the string is unicode then any index (eg. from match.start()) will be in unicode
+                        # characters.  Kindle offsets are bytes, so we need to convert this to the length in bytes.
+                        # We do this by converting it to a utf-8 byte array and calculating lengths on that.
+                        #
+                        locHighlightChars = match.start(2)
+                        locHighlight = len((ptext[:locHighlightChars]).encode('utf-8'))
                         # Make sure we get the length from the matched item (possibly an alias)
                         lenHighlight = match.end(2) - match.start(2)
+                        
+                        if locHighlight != locHighlightChars:
+                            ptext_bytestream = ptext.encode('utf-8')
+                            logfile.writeln(ptext_bytestream)
+                            logfile.flush()
+                            logfile.writeln("Location difference: %u chars vs. %u bytes (corrected %s)" % (
+                                locHighlightChars, 
+                                locHighlight, 
+                                ptext_bytestream[locHighlight:locHighlight+lenHighlight]))
+                            logfile.flush()
 
                         lengthLimit = 135
                         if (shortEx and (locHighlight + lenHighlight > lengthLimit)):
@@ -1076,9 +1138,11 @@ class XRayData(object):
                                     start = at - 1
 
                                     if ((locHighlight + lenHighlight + 1 - at - 2) <= lengthLimit):
-                                        newLoc = location + at + 2
-                                        newLenQuote = lenQuote - at - 2
-                                        newLocHighlight = locHighlight - at - 2
+                                        newLocOffsetBytes = len(ptext[:at + 2].encode('utf-8'))
+                                        newLoc = location + newLocOffsetBytes
+                                        newLenQuote = lenQuote - newLocOffsetBytes
+                                        newLocHighlightChars = locHighlightChars - at - 2
+                                        newLocHighlight = len((ptext[at+2:locHighlightChars]).encode('utf-8'))
                                         #job.log_write ("updating to at="+str(at) + " newLoc=" + str(newLoc) + " newLenQuote=" + str(newLenQuote) + " newLocHighlight=" + str(newLocHighlight) + "\n");
 
                                     else:
@@ -1089,9 +1153,12 @@ class XRayData(object):
                             # Only add new locs if shorter excerpt was found
                             if (newLoc >= 0):
                                 character.addLoc (newLoc + locOffset, newLenQuote, newLocHighlight, lenHighlight)
+                                logfile.writeln("OrigLoc: %s %s %s %s %s" % (ptext_bytestream[locHighlight:locHighlight+lenHighlight], location+locOffset, lenQuote, locHighlight, lenHighlight))
+                                logfile.writeln("NewLoc: (%s) %s %s %s %s %s" % (ptext_bytestream[locHighlight:locHighlight+lenHighlight], newLocOffsetBytes, newLoc + locOffset, newLenQuote, newLocHighlight, lenHighlight))
                                 continue
 
                         character.addLoc (location+locOffset, lenQuote, locHighlight, lenHighlight)
+                        logfile.writeln("OrigLoc: %s %s %s %s %s" % (ptext_bytestream[locHighlight:locHighlight+lenHighlight], location+locOffset, lenQuote, locHighlight, lenHighlight))
 
                         # Either add a new excerpt, or add a new entity to an existing excerpt
 
