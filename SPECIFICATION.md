@@ -2,7 +2,7 @@
 This tool aims to produce a series of meta-data files to be interpreted by the Kindle when reading a book.  This file aims to describe what the format is, with the hope the tool can create this!
 
 # X-Ray
-The X-Ray file is the one that the reader will see when selecting the X-Ray button while reading a book.  It will show various highlights, character summaries, frequency of a character being mentioned, etc.
+The X-Ray file contains the information that the reader will see when selecting the X-Ray button while reading a book, or when highlighting a character/term in that book.  It will show various highlights, character summaries, frequency of a character being mentioned, etc.
 
 ## Versions
 There have been two versions of this file, the old version which is JSON data, and the new version which is an SQLite DB.  The information in both is roughly equivalent.
@@ -98,3 +98,32 @@ Clueless.. Seems to be a bunch of locale based strings, not sure where these are
 * singular_label INTEGER
 * icon INTEGER: Select the icon in X-Ray view for this type (1=person logo, used for `entity.type=1` type; 2=book logo, used for `entity.type=2` type) 
 * top_mentioned_entities TEXT: comma-separated ordered list of entities to appear in X-Ray summary (not all entities would need to appear here, some could just give information when highlighted in book)
+
+# Start Actions
+The Start Actions file describes what is shown to the reader when first opening a book, or when selecting the 'About This Book' option from the menu.  It contains a summary of the book, details of the author, other books from that author, etc. - basically the digital equivalent of what would be printed on the back cover of a book.
+
+## Versions
+Only one version as far as I'm aware, in JSON format.
+
+## Naming
+StartActions.data.{ASIN}.asc
+
+## Contents
+The top level keys are all containers for a lot of information, so a section on each below.  The keys are bookInfo, data, layouts, widgets - the values are nested data.
+
+### bookInfo
+Top level book information, all obvious
+asin: String(ASIN)
+class: String("BookInfo")
+- fixed string?  Assume this is to match up with some CSS or similar.
+contentType: String("EBOK")
+- could this be other things, eg. for audio books or videos?
+erl: Int(-1)
+- TBC
+imageUrl: String(URL for book cover)
+- unknown if it is a specific size, colour depth, etc.  For sample book I had a 226x340 JPEG.
+refTagSuffix: String(???)
+- TBC
+timestamp: Int(timestamp)
+- Not sure what format this is, couldn't trivially decode in python.  Could just be used for the sort order on Kindle (ie. sort by: Recent)
+
