@@ -13,6 +13,7 @@ __copyright__ = '2012-15, Matthew Wilson <matthew@mjwilson.demon.co.uk>'
 __docformat__ = 'restructuredtext en'
 
 import os, time, re, errno, io, sys
+import unicodedata
 import tempfile, shutil
 import cStringIO
 from array import *
@@ -21,6 +22,8 @@ from lxml.cssselect import CSSSelector
 from threading import Thread
 from Queue import Queue
 import httplib, socket # just for urllib2.urlopen() exceptions
+import urllib, urllib2
+from collections import namedtuple
 
 try:
     from PyQt4.Qt import Qt, QMenu, QFileDialog, QIcon, QPixmap, QMessageBox, QInputDialog, QDialog
@@ -155,8 +158,8 @@ class XRayAction(InterfaceAction):
                 if not ans:
                     ans = 'x'
                 return ans
-            
-            self.xray_mixin.generate_xray(mi.title, f, id)
+
+            self.xray_mixin.generate_xray(mi.title, mi.author_sort_map.keys(), f, id)
 
         if bad:
             bad = '\n'.join('%s'%(i,) for i in bad)
@@ -182,7 +185,7 @@ class XRayAction(InterfaceAction):
         if not unpackdir:
             return
         
-        self.xray_mixin.generate_xray("specified file", filename, None)
+        self.xray_mixin.generate_xray("Unknown title (from specified file)", "Unknown author (from specified file)", filename, None)
         
     def show_dialog(self):
         
@@ -215,11 +218,11 @@ class XRayAction(InterfaceAction):
 
 class XRayJob(BaseJob):
     
-    def __init__(self, callback, description, job_manager, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
+    def __init__(self, callback, description, job_manager, title, author, book_id, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
         BaseJob.__init__(self, description)
         self.exception = None
         self.job_manager = job_manager
-        self.args = (filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
+        self.args = (title, author, book_id, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
         self.callback = callback
         self.log_path = None
         self._log_file = cStringIO.StringIO()
@@ -253,11 +256,12 @@ class XRayJob(BaseJob):
 
 class XRayGenerator(Thread):
     
-    def __init__(self, job_manager):
+    def __init__(self, job_manager, db):
         Thread.__init__(self)
         self.daemon = True
         self.jobs = Queue()
         self.job_manager = job_manager
+        self.db = db
         self._run = True
         self.xray_builder = XRayBuilder()
         
@@ -290,7 +294,7 @@ class XRayGenerator(Thread):
                 exc = e
                 job.log_write('\nXRAY generation failed...\n')
                 job.log_write(traceback.format_exc())
-
+            logfile.flush()
             if not self._run:
                 break
 
@@ -311,7 +315,13 @@ class XRayGenerator(Thread):
 
     def _generate_xray(self, job):
 
-        filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat = job.args
+        title, authors, book_id, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat = job.args
+        if not title:
+            raise Exception(_('No title found - unexpected.'))
+        if not authors:
+            raise Exception(_('No authors found - unexpected.'))
+        if not book_id:
+            raise Exception(_('No book ID found - unexpected'))
         if not filename:
             raise Exception(_('No filename specified.'))
         if not rawml:
@@ -328,14 +338,17 @@ class XRayGenerator(Thread):
             raise Exception(_('No information available to generate GUID.'))
         if not uniqid:
             raise Exception(_('No uniqid specified'))
-        if not shelfariUrl:
-            raise Exception(_('No Shelfari URL specified.'))
         if not os.path.exists(xraydir):
             os.makedirs(xraydir)
 
         job.notifications.put((0.00, "Starting"))
 
-        data = XRayData()
+        data = XRayData(job)
+        if not shelfariUrl:
+            shelfariUrl = data.findShelfari(authors, title)
+            if id is not None:
+                self.db.add_custom_book_data(book_id, 'xray.url.shelfari', str(shelfariUrl))
+        
         job.log_write ("Loading Shelfari from " + shelfariUrl + "...\n")
         data.readShelfari (shelfariUrl, job)
 
@@ -363,10 +376,10 @@ class XRayGenerator(Thread):
             except Error as e:
                 job.log_write ("Unexpected error clearing out temporary directory " + e)
         
-    def generate_xray(self, callback, title, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
+    def generate_xray(self, callback, title, authors, book_id, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat):
 
         description = _('Generating XRay for %s') % (title)
-        job = XRayJob(callback, description, self.job_manager, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
+        job = XRayJob(callback, description, self.job_manager, title, authors, book_id, filename, xraydir, rawml, asin, database, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
         self.job_manager.add_job(job)
         self.jobs.put(job)
 
@@ -386,9 +399,9 @@ class XRayMixin(object):
         '''
         self.db = self.gui.current_db
         if not hasattr(self.gui, 'xray_generator'):
-            self.gui.xray_generator = XRayGenerator(self.gui.job_manager)
+            self.gui.xray_generator = XRayGenerator(self.gui.job_manager, self.gui.current_db)
 
-    def generate_xray(self, title, filename, id):
+    def generate_xray(self, title, authors, filename, book_id):
         from calibre.ebooks.metadata.meta import get_metadata
         from calibre.ebooks.metadata.mobi import MetadataUpdater
         from struct import unpack
@@ -420,24 +433,24 @@ class XRayMixin(object):
             return
 
         defaultShelfariUrl = ''
-        if id is not None:
-            defaultShelfariUrl = self.db.get_custom_book_data ( id, 'xray.url.shelfari');
+        if book_id is not None:
+            defaultShelfariUrl = self.db.get_custom_book_data(book_id, 'xray.url.shelfari')
             if defaultShelfariUrl is None:
                 defaultShelfariUrl = ''
 
         defaultWikiUrl = ''
-        if id is not None:
-            defaultWikiUrl = self.db.get_custom_book_data ( id, 'xray.url.wikipedia');
+        if book_id is not None:
+            defaultWikiUrl = self.db.get_custom_book_data(book_id, 'xray.url.wikipedia')
             if defaultWikiUrl is None:
                 defaultWikiUrl = ''
 
         defaultAliasesFile = ''
-        if id is not None:
-            defaultAliasesFile = self.db.get_custom_book_data ( id, 'xray.file.aliases');
+        if book_id is not None:
+            defaultAliasesFile = self.db.get_custom_book_data(book_id, 'xray.file.aliases')
 
         defaultXrayDir = ''
-        if id is not None:
-            defaultXrayDir = self.db.get_custom_book_data ( id, 'xray.dir.xray');
+        if book_id is not None:
+            defaultXrayDir = self.db.get_custom_book_data(book_id, 'xray.dir.xray')
 
         defaultNewFormat = prefs['newFormat']    
 
@@ -464,14 +477,14 @@ class XRayMixin(object):
             tempdir = tempfile.mkdtemp()
             unpackdir = tempdir
 
-        if id is not None:
-            self.db.add_custom_book_data ( id, 'xray.url.shelfari', str(shelfariUrl));
-        if xraydir is not None and id is not None:
-            self.db.add_custom_book_data ( id, 'xray.dir.xray', str(xraydir));
-        if aliasFile is not None and id is not None:
-            self.db.add_custom_book_data ( id, 'xray.file.aliases', aliasFile )
-        if wikiUrl is not None and id is not None:
-            self.db.add_custom_book_data ( id, 'xray.url.wikipedia', str(wikiUrl));
+        if book_id is not None:
+            self.db.add_custom_book_data(book_id, 'xray.url.shelfari', str(shelfariUrl))
+        if xraydir is not None and book_id is not None:
+            self.db.add_custom_book_data(book_id, 'xray.dir.xray', str(xraydir))
+        if aliasFile is not None and book_id is not None:
+            self.db.add_custom_book_data(book_id, 'xray.file.aliases', aliasFile)
+        if wikiUrl is not None and book_id is not None:
+            self.db.add_custom_book_data(book_id, 'xray.url.wikipedia', str(wikiUrl))
 
         prefs['newFormat'] = newFormat
         
@@ -490,7 +503,7 @@ class XRayMixin(object):
             mobidir = fn.mobi7dir
         rawml = os.path.join (mobidir, fn.getInputFileBasename() + '.rawml')
 
-        self.gui.xray_generator.generate_xray(Dispatcher(self.xray_generated), title, filename, xraydir, rawml, asin, db, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
+        self.gui.xray_generator.generate_xray(Dispatcher(self.xray_generated), title, authors, book_id, filename, xraydir, rawml, asin, db, uniqid, shelfariUrl, wikiUrl, aliasFile, offset, tempdir, newFormat)
         self.gui.status_bar.show_message(_('Generating XRay for %s') % (title), 3000)
     
     def xray_generated(self, job):
@@ -750,8 +763,10 @@ class XRayCharacter(XRayEntity):
 class XRayData(object):
     honorifics = "Mr Mrs Ms Miss Master Sir Madam Lord Dame Lady Prof Professor Doctor Dr Father Reverend".split()
     honorifics.extend([x + "." for x in honorifics])
+    shelfariBook = namedtuple("shelfariBook", "index url title author description")
     
-    def __init__(self):
+    def __init__(self, job):
+        self.job = job
         self.characters = []
         self.excerpts = []
         self.topics = []
@@ -759,10 +774,102 @@ class XRayData(object):
         self.wikiUrl = ''
         self.chapters = []
         self.shelfari_regex = re.compile("https?://(?:.*\.)?shelfari.com/books/([0-9]*)(?:/?.*)")
+    def remove_diacritics(self, term):
+        def rmdiacritics(char):
+            '''
+            Return the base character of char, by "removing" any
+            diacritics like accents or curls and strokes and the like.
+            '''
+            desc = unicodedata.name(unicode(char))
+            cutoff = desc.find(' WITH ')
+            if cutoff != -1:
+                desc = desc[:cutoff]
+            return unicodedata.lookup(desc)    
+        return "".join([rmdiacritics(x) for x in term])
+    
+    def normalise_term(self, term):
+        term = term.lower()
+        term = self.remove_diacritics(term)
+        return term
+    
+    def findShelfari(self, authors, title):
+        other_editions_count = 0
+        close_matches = [] # Matches where name/title match
+        exact_matches = [] # Matches where name/title match and "Other editions" found
+        
+        # Pick the first author and hope that works - we can't specify more than one, and no way to know who the "main" author is if there is one.
+        author = authors[0]
+        
+        self.job.log_write("Looking up Shelfari URL for author:%s; title: %s\n" % (author, title))
+        url = "http://www.shelfari.com/search/books?Author={author}&Title={title}".format(**{"author": urllib.quote(author), "title": urllib.quote(title)})
+        logfile.writeln("URL: %s" % (url))
+        html = urllib2.urlopen(url).read()
+        
+        raw = html5lib.parse(html, treebuilder='lxml', namespaceHTMLElements=False)
+        content_div = raw.xpath("///div[contains(@class, 'content')]")[0]
+        
+        search_results = content_div.xpath("//li[@class='item']/div[@class='text']")
+        self.job.log_write("%u results found\n" % (len(search_results)))
+        s_author, s_title = author, title
+        
+        for modify_strings in [False, True]:
+            if modify_strings:
+                s_author, s_title = map(self.normalise_term, (s_author, s_title))
+                
+            for i, result in enumerate(search_results):
+                logfile.writeln(" Result %u" % (i))
+                f_title = result.xpath("h3/a")[0].text
+                logfile.writeln("  Title: %s" % f_title)
+                f_url = result.xpath("h3/a")[0].attrib["href"]
+                logfile.writeln("  URL: %s" % f_url)
+                try:
+                    f_desc = result.xpath("p")[0].text
+                except IndexError:
+                    f_desc = "None found"
+                logfile.writeln("  Description: %s" % f_desc)
+                try:    
+                    f_author = result.xpath("a")[0].text
+                except IndexError:
+                    f_author = "None found"
+                logfile.writeln("  Author: %s" % f_author)
+                try:
+                    result.xpath("div[contains(@class, 'otherEditions')]")[0]
+                    other_editions = True
+                    other_editions_count += 1
+                except:
+                    other_editions = False
+                logfile.writeln("Other Editions: %s" % ("Found" if other_editions else "Not found"))
+                
+                if modify_strings:
+                    f_author, f_title = map(self.normalise_term, (f_author, f_title))
+                    
+                if s_title == f_title and s_author == f_author:
+                    sb = XRayData.shelfariBook(i, f_url, f_title, f_author, f_desc)
+                    if other_editions:
+                        exact_matches.append(sb)
+                    else:
+                        close_matches.append(sb)
+            logfile.writeln("Other editions found: %u/%u" % (other_editions_count, len(search_results)))
+            logfile.writeln("Found %u/%u close matches" % (len(close_matches), len(search_results)))
+            logfile.writeln("Found %u/%u exact matches" % (len(exact_matches), len(search_results)))
+            if len(exact_matches) == 1:
+                best_result = exact_matches[0]
+            elif len(exact_matches) == 0 and len(close_matches) > 0:
+                best_result = close_matches[0]
+            elif len(exact_matches) > 1:
+                raise Exception(_("Found multiple exact matches from Shelfari - unexpected"))
+            if exact_matches:
+                # If we have an exact match, give up without normalising strings (making lower case, removing diacritics)
+                break
+        
+        if best_result:
+            logfile.writeln("Best result: %d/%u: %s" % (best_result.index, len(search_results), best_result.url))
+            self.job.log_write("Found Shelfari page: %s\n" % (best_result.url))
+            self.job.log_write("Check details: Title '%s'; Author '%s'; Description '%s'\n" % (best_result.title, best_result.author, best_result.description))
+            return best_result.url
+        raise Exception(_('No Shelfari URL found.'))
 
     def readShelfari (self, shelfariUrl, job):
-        import urllib2
-
         XRayEntity.reset()
         
         cache_dirname = prefs['cacheDir']
