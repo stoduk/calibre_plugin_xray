@@ -874,7 +874,7 @@ class XRayData(object):
         
         cache_dirname = prefs['cacheDir']
         res = self.shelfari_regex.match(shelfariUrl)
-        bookid = None if not res.groups else res.groups()[0]
+        bookid = None if not hasattr(res, "groups") else res.groups()[0]
         fname = None if not (cache_dirname and bookid) else os.path.join(cache_dirname, bookid)
         if cache_dirname and os.path.isdir(cache_dirname) and res and os.path.isfile(fname):
             job.log_write("Loading Shelfari data from cache for '%s'\n" % (bookid))
