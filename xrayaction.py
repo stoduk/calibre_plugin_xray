@@ -18,6 +18,7 @@ import tempfile, shutil
 import cStringIO
 from array import *
 import html5lib
+import lxml
 from lxml.cssselect import CSSSelector
 from threading import Thread
 from Queue import Queue
@@ -796,6 +797,7 @@ class XRayData(object):
         other_editions_count = 0
         close_matches = [] # Matches where name/title match
         exact_matches = [] # Matches where name/title match and "Other editions" found
+        best_result = None
         
         # Pick the first author and hope that works - we can't specify more than one, and no way to know who the "main" author is if there is one.
         author = authors[0]
@@ -830,7 +832,14 @@ class XRayData(object):
                 try:    
                     f_author = result.xpath("a")[0].text
                 except IndexError:
-                    f_author = "None found"
+                    # This means Shelfari doesn't have a confirmed author..  Let's try it the messy way.
+                    try:
+                        f_author = re.search("^\s*by (.*)", lxml.html.tostring(result.xpath("h3")[0]), flags=re.MULTILINE).groups()[0]
+                        self.job.log_write("INFO: Author is not correctly setup in Shelfari - please fix\n")
+                    except AttributeError:
+                        self.job.log_write("ERROR: cannot find author in search results\n")
+                        f_author = "None found"
+                    
                 logfile.writeln("  Author: %s" % f_author)
                 try:
                     result.xpath("div[contains(@class, 'otherEditions')]")[0]
