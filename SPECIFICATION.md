@@ -40,16 +40,16 @@ Describes all entities in the book (ie. characters, locations, etc.).
 
 * id INTEGER PRIMARY KEY: unique ID
 * label TEXT: Character's name, for example.
-* loc_label INTEGER: XXX unknown, an integer.  Point in to the book for character info?
-* type INTEGER: 0=??? (there seems to be an 'empty' first row always), 1=character, 2=topic (anything else!)
+* loc_label INTEGER: XXX unknown, an integer.  Only seen it used for the first (zero id/null label) entry.
+* type INTEGER: type.id defining what sort of entity this is.  Unclear what meaning of zero is here, which is only used in the always-present first null entry
 * count INTEGER: number of times the entitiy is seen, should match an appropriate query on `occurrence` table
 * has_info_card TINYINT: shows if the entity should appear in the entity list in X-Ray (only 0 for the empty row, as far as I've seen)
 
 #### `entity_description` table
 
-* text TEXT: Description of the entity (eg. character bio)
-* source_wildcard TEXT: ??? Seems to be repetition of `entity.label`, not sure when one would be used over the other
-* source INTEGER: ??? 
+* text TEXT: Description of the entity (eg. character bio, term description)
+* source_wildcard TEXT: String which combined with this entitiy's source URL will provide a link to the full entitiy description
+* source INTEGER: source.id for this source.  Unknown if there are any assumptions here (eg. 0=Kindle Store)
 * entity INTEGER PRIMARY KEY: entity (ie. `entity.id`)
 
 #### `entity_excerpt` table
@@ -71,32 +71,44 @@ An excerpt from the book which contains one or more entities (detained in `entit
 * id INTEGER PRIMARY KEY: unique ID for excerpt
 * start INTEGER: start location
 * length INTEGER: length of excerpt
-* image TEXT: XXX
-* related_entities TEXT: entities (ie. `entity.id`) that are in this excerpt.  Not clear why this duplication is needed, `entity_excerpt` tables covers it.
-* goto INTEGER: XXX seems to be NULL for the book I have
+* image TEXT: Normally null.  Can be a string that points to an image in the book (eg. 'kindle:embed:0001?mime=image/gif')
+* related_entities TEXT: comma separated list of entities (ie. `entity.id`) that are in this excerpt.  [duplicate of information in `entity_excerpt` table]
+* goto INTEGER: Normally null.  If 'image' exists then this is the location of the image in the book.
 
 #### `book_metadata` table
-#### `source` table
-Not a scooby..  Seems to be some 
+Book meta-data.
 
-* id INTEGER PRIMARY KEY
-* label INTEGER
-* url INTEGER
-* license_label INTEGER
-* license_url INTEGER
+* srl INTEGER: Start RL - seems to be the byte location of the start of the book (ie. beginning of first chapter), ie. excluding title pages, TOC, etc.
+* erl INTEGER: End RL - seems to be the byte location of the end of the book (ie. end of last chapter), ie. excluding index, etc.
+* has_images TINYINT: Always zero/False.  Would this indicate inline images or similar?  Need example book with this set.
+* has_excerpts TINYINT: Always one/True.  We have excerpts!
+* show_spoilers_default TINYINT: Always zero/False.  Hide spoilers.  XXX How are spoilers enabled/identified?
+* num_people INTEGER: Count of people (ie. entities where type is 1)
+* num_terms INTEGER: Count of people (ie. entities where type is 2)
+* num_images INTEGER: Number of images referenced in 'preview_images' (if 'has_images' is 1)
+* preview_images TEXT: Comma separated list of integers of excerpt.id for excerpts that have an associated image.  
+
+#### `source` table
+Data source information - each entity has a data source specified.
+
+* id INTEGER PRIMARY KEY: unique id for the source.  Referenced in entity_description.source.
+* label INTEGER: string.id for the name of this source.
+* url INTEGER: string.id defining the URL for this source (eg. 'store://%s' for Kindle Store, 'http://en.wikipedia.org/wiki/%s' for Wikipedia).
+* license_label INTEGER: string.id for the license name for this source.
+* license_url INTEGER: string.id for the license URL for this source.
 
 #### `string` table
-Clueless.. Seems to be a bunch of locale based strings, not sure where these are used.  (ie. for a given `id` we'll have multiple language ('en', 'jp', etc.) and text pairs).
+Various strings, with translations.  Used for referencing sources (ie. source.label, source.license_label, and source.license_url).
 
-* id INTEGER
-* language TEXT
-* text TEXT
+* id INTEGER: unique ID (unique for a given string, there will normally be one entry per language).
+* language TEXT: language string (eg. 'en').
+* text TEXT: String being defined (can be a source's name, source's URL, source license's name or URL).
 
 #### `type` table
-* id INTEGER PRIMARY KEY: unique index
-* label INTEGER: XXX 
-* singular_label INTEGER
-* icon INTEGER: Select the icon in X-Ray view for this type (1=person logo, used for `entity.type=1` type; 2=book logo, used for `entity.type=2` type) 
+* id INTEGER PRIMARY KEY: unique index, referenced in entity.type
+* label INTEGER: string.id for type's description of multiple items of this type (eg. "People") 
+* singular_label INTEGER: string.id for type's description of a single item if this type (eg. "Person")
+* icon INTEGER: Select the icon in X-Ray view for this type (1=person logo; 2=book logo) 
 * top_mentioned_entities TEXT: comma-separated ordered list of entities to appear in X-Ray summary (not all entities would need to appear here, some could just give information when highlighted in book)
 
 # Start Actions
@@ -113,17 +125,66 @@ The top level keys are all containers for a lot of information, so a section on 
 
 ### bookInfo
 Top level book information, all obvious
-asin: String(ASIN)
+bookInfo.asin: String(ASIN)
 class: String("BookInfo")
 - fixed string?  Assume this is to match up with some CSS or similar.
-contentType: String("EBOK")
+bookInfo.contentType: String("EBOK")
 - could this be other things, eg. for audio books or videos?
-erl: Int(-1)
+bookInfo.erl: Int(-1)
 - TBC
-imageUrl: String(URL for book cover)
+bookInfo.imageUrl: String(URL for book cover)
 - unknown if it is a specific size, colour depth, etc.  For sample book I had a 226x340 JPEG.
-refTagSuffix: String(???)
+bookInfo.refTagSuffix: String(???)
 - TBC
-timestamp: Int(timestamp)
+bookInfo.timestamp: Int(timestamp)
 - Not sure what format this is, couldn't trivially decode in python.  Could just be used for the sort order on Kindle (ie. sort by: Recent)
 
+### data
+More containers, so split them out.  The keys are currentBook. welcomeText, readingTime, readingPages, popularHighlightsText, authorRecs, bookDescription, authorBios, grokShelfInfo
+
+#### data.currentBook
+data.currentBook.asin: String(ASIN)
+data.currentBook.description: String(Description)
+data.currentBook.title: String(Title)
+data.currentBook.imageUrl: String(URL)
+- same as bookInfo.imageUrl
+data.currentBook.hasSample: Bool
+data.currentBook.amazonRating: Decimal(Rating)
+data.currentBook.numberOfReviews: Int(Rating count)
+data.currentBook.authors: List(String(author)..)
+data.currentBook.class: String("featuredRecommendation")
+- is this a CSS specifier again?
+
+#### data.welcomeText
+Hardcoded selection of text (in various language) that are shown when "About this book" feature is used.  Odd to hardcode it, and in every book!
+#### data.readingTime
+Reading time both as numbers ("hours" and "minutes" keys), and as a set of strings ("formattedTime.{countrycode}")
+data.readingTime.hours: Int(hours)
+data.readingTime.minutes: Int(minutes)
+data.readingTime.formattedTime: Dict(country code: human readable duration)
+#### data.readingPages
+data.readingPages.class: String("pages")
+- CSS again?
+data.readingPages.pagesInBook: Int(pages in book)
+#### data.popularHighlightsText
+data.popularHighlightsText.class: String("dynamicText")
+- CSS?
+data.popularHighlightsText.localizedText: Dict(country code: human readable string)
+- eg. u'1,266 passages have been highlighted 19,446 times'
+#### data.authorRecs
+data.authorRecs.class: String("recommendationList")
+- CSS?
+data.authorRecs.localizedText: List(recommendations)
+- each entry is Dict containing asin, authors, class("recommendation"), hasSample, imageUrl, title
+#### data.bookDescription
+Exactly the same as data.currentBook it seems.  Always true?
+#### data.authorBios
+data.authorBios.authors: List(author bios)
+- author bios is Dict containing asin, bio, class("authorBio"), imageUrl, name
+- imageUrl is 250Hx365W image
+data.authorBios.class: String("authorBiosList")
+#### data.grokShelfInfo
+data.grokShelfInfo.asin: String(ASIN)
+data.grokShelfInfo.class: String("goodReadsShelfInfo")
+data.grokShelfInfo.shelves: List(String(shelf))
+- eg. "to-read"
