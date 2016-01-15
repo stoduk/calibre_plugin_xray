@@ -188,3 +188,49 @@ data.grokShelfInfo.asin: String(ASIN)
 data.grokShelfInfo.class: String("goodReadsShelfInfo")
 data.grokShelfInfo.shelves: List(String(shelf))
 - eg. "to-read"
+
+# Author Profile
+The Author Profile file describes what is shown to the reader when they choose to view the author's details when viewing a book.
+
+## Versions
+Only one version.
+
+## Naming
+AuthorProfile.profile.{ASIN}.asc
+
+## Contents
+Top level keys: a, d, o, u
+
+### a
+Value is the ASIN.
+
+### d
+Value is a timestamp.
+
+### o
+Value is a list of other books, each item in the list being a Dict:
+
+o.a: String(ASIN)
+o.e: hard coded integer, 1.  ??Enable flag??
+o.t: Title
+
+### u
+Value is a list of Authors, with each item in the list being a Dict:
+
+#### a
+Value is a string containing the Author's ASIN.
+
+#### b
+Value is a string containing a biography of the author.
+
+#### i
+Value is a Base64 encoded greyscale image of the author.  278 pixels high x 185 pixels wide.
+
+#### l
+Value is a list, with each entry being a string containing the ASIN of a book.
+
+#### n
+Value is Author's name.
+
+#### y
+Value is an integer, the hight of the author's image.
