@@ -1,3 +1,7 @@
+* [Summary](#summary)
+* [X-Ray](#x-ray)
+* [Author Profile](#author-profile)
+
 # Summary
 This tool aims to produce a series of meta-data files to be interpreted by the Kindle when reading a book.  This file aims to describe what the format is, with the hope the tool can create this!
 
