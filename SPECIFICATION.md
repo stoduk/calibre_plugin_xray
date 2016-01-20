@@ -1,9 +1,29 @@
 * [Summary](#summary)
 * [X-Ray](#x-ray)
 * [Author Profile](#author-profile)
+* [Start Actions](#start-actions)
+* [End Actions](#end-actions)
 
 # Summary
 This tool aims to produce a series of meta-data files to be interpreted by the Kindle when reading a book.  This file aims to describe what the format is, with the hope the tool can create this!
+
+## Versions
+There have been two major versions of these file formats - the original format, and the "new" format.  The new format appeared in firmware version 5.6 and upwards.  The two main changes in the new file format were the move from JSON to SQLite3 format for X-Ray data, and the addition of the Start Actions file.
+
+## Device Support
+
+<table>
+<tr><th>Generation</th><th>Model</th><th>Earliest firmware</th><th>Latest firmware</th><th>Supports touch?</th><th>Supports X-Ray?</th><th>Support new format</th></tr>
+<tr><td>3</td><td>Kindle Keyboard</td><td>???</td><td>3.4.2</td><td>No</td><td></td><td></td></tr>
+<tr><td>4</td><td>Kindle</td><td>??? [as 5th gen?]</td><td>4.1.3</td><td>No</td><td></td><td></td></tr>
+<tr><td>4</td><td>Kindle Touch</td><td>&lt; 5.1</td><td>5.3.7.3</td><td>Yes</td><td>Yes (first)</td><td>No</td></tr>
+<tr><td>5</td><td>Kindle</td><td>&lt;4.1.0</td><td>4.1.3</td><td>No</td><td>No</td><td>-</td></tr>
+<tr><td>5</td><td>Kindle Paperwhite v1</td><td>&lt;=5.3.0</td><td>5.6.1.1</td><td>Yes</td><td>Yes</td><td>Some</td></tr>
+<tr><td>6</td><td>Kindle Paperwhite v2</td><td>&lt;=5.4.2</td><td>5.6.5</td><td>Yes</td><td>Yes</td><td>Some</td></tr>
+<tr><td>7</td><td>Kindle</td><td>???</td><td>5.6.5</td><td>Yes (implicit)</td><td>Yes</td><td>Always?</td></tr>
+<tr><td>7</td><td>Kindle Voyage</td><td>???</td><td>5.6.5</td><td>Yes</td><td>Yes</td><td>Always?</td></tr>
+<tr><td>7</td><td>Kindle Paperwhite v3</td><td>???</td><td>5.6.5</td><td>Yes</td><td>Yes</td><td>Always?</td></tr>
+</table>
 
 # X-Ray
 The X-Ray file contains the information that the reader will see when selecting the X-Ray button while reading a book, or when highlighting a character/term in that book.  It will show various highlights, character summaries, frequency of a character being mentioned, etc.
@@ -17,10 +37,10 @@ XXX when is old vs. new used?  .NET app guys probably know..
 XRAY.entities.{ASIN}.asc
 
 ## Contents
-### JSON
+### Old format: JSON
 TBC
 
-### SQLite
+### New format: SQLite
 The file is an sqlite3 format database, with this schema:
 ```
 PRAGMA foreign_keys=OFF;
@@ -119,15 +139,16 @@ Various strings, with translations.  Used for referencing sources (ie. source.la
 The Start Actions file describes what is shown to the reader when first opening a book, or when selecting the 'About This Book' option from the menu.  It contains a summary of the book, details of the author, other books from that author, etc. - basically the digital equivalent of what would be printed on the back cover of a book.
 
 ## Versions
-Only one version as far as I'm aware, in JSON format.
+This only exists in new format.
 
 ## Naming
 StartActions.data.{ASIN}.asc
 
 ## Contents
+### Format: JSON
 The top level keys are all containers for a lot of information, so a section on each below.  The keys are bookInfo, data, layouts, widgets - the values are nested data.
 
-### bookInfo
+#### bookInfo
 Top level book information, all obvious
 bookInfo.asin: String(ASIN)
 class: String("BookInfo")
@@ -143,10 +164,10 @@ bookInfo.refTagSuffix: String(???)
 bookInfo.timestamp: Int(timestamp)
 - Not sure what format this is, couldn't trivially decode in python.  Could just be used for the sort order on Kindle (ie. sort by: Recent)
 
-### data
+#### data
 More containers, so split them out.  The keys are currentBook. welcomeText, readingTime, readingPages, popularHighlightsText, authorRecs, bookDescription, authorBios, grokShelfInfo
 
-#### data.currentBook
+##### data.currentBook
 data.currentBook.asin: String(ASIN)
 data.currentBook.description: String(Description)
 data.currentBook.title: String(Title)
@@ -159,35 +180,35 @@ data.currentBook.authors: List(String(author)..)
 data.currentBook.class: String("featuredRecommendation")
 - is this a CSS specifier again?
 
-#### data.welcomeText
+##### data.welcomeText
 Hardcoded selection of text (in various language) that are shown when "About this book" feature is used.  Odd to hardcode it, and in every book!
-#### data.readingTime
+##### data.readingTime
 Reading time both as numbers ("hours" and "minutes" keys), and as a set of strings ("formattedTime.{countrycode}")
 data.readingTime.hours: Int(hours)
 data.readingTime.minutes: Int(minutes)
 data.readingTime.formattedTime: Dict(country code: human readable duration)
-#### data.readingPages
+##### data.readingPages
 data.readingPages.class: String("pages")
 - CSS again?
 data.readingPages.pagesInBook: Int(pages in book)
-#### data.popularHighlightsText
+##### data.popularHighlightsText
 data.popularHighlightsText.class: String("dynamicText")
 - CSS?
 data.popularHighlightsText.localizedText: Dict(country code: human readable string)
 - eg. u'1,266 passages have been highlighted 19,446 times'
-#### data.authorRecs
+##### data.authorRecs
 data.authorRecs.class: String("recommendationList")
 - CSS?
 data.authorRecs.localizedText: List(recommendations)
 - each entry is Dict containing asin, authors, class("recommendation"), hasSample, imageUrl, title
-#### data.bookDescription
+##### data.bookDescription
 Exactly the same as data.currentBook it seems.  Always true?
-#### data.authorBios
+##### data.authorBios
 data.authorBios.authors: List(author bios)
 - author bios is Dict containing asin, bio, class("authorBio"), imageUrl, name
 - imageUrl is 250Hx365W image
 data.authorBios.class: String("authorBiosList")
-#### data.grokShelfInfo
+##### data.grokShelfInfo
 data.grokShelfInfo.asin: String(ASIN)
 data.grokShelfInfo.class: String("goodReadsShelfInfo")
 data.grokShelfInfo.shelves: List(String(shelf))
@@ -238,3 +259,92 @@ Value is Author's name.
 
 #### y
 Value is an integer, the hight of the author's image.
+
+# End Actions
+## Versions
+There have been two major versions of this file, the old version was encoded in XML, the new version is encoded in JSON.
+
+## Naming
+EndActions.data.{ASIN}.asc
+
+## Contents
+### Old format: XML
+TBC.  Contains similar data, but much less of it - eg. no imageUrl or descriptions for recommendations (does it not show those, or does it grab them separately?)
+
+Some notes:
+- rather than timestamp it has date/time I think (s=readable datetime, zzz=timezone info ?)
+
+### New format: JSON
+There are four top level keys, two whose values are lists of Dict (widgets, layouts), two whose values are just a Dict (bookInfo, data)
+
+#### bookinfo
+Data for this current book, no other books are referenced, some external data is needed.
+
+bookinfo.class: String("bookInfo")
+bookinfo.asin: String(ASIN)
+bookinfo.contentType: String("EBOK")
+bookinfo.timestampe: Int(timestamp)
+bookinfo.regTagSuffix: String(???)
+bookinfo.imageUrl: String(image url)
+bookinfo.embeddedId: String("{database name}:{ASIN}")
+- example: "A_Christmas_Carol:BA862274"
+bookinfo.erl: Int(erl)
+
+#### data
+Data for this book and other related books (either recommendations, or cited books), so plenty of external data needed.
+
+All the rating related data should not be added, as the device will add it when a rating is given (indeed, prepopulating it with rating information using Amazon's average rating is perhaps both confusing and *may* interfere with submitting your own rating).
+
+data.nextBook: OPTIONAL Dict(???)
+- was empty in my example.  Does this link to next book in series in bookshop?  Or perhaps it could even open the next one on the device.
+- XXX need to find an example where this works..
+- GUI handles this, I imagine it is dumping an entry as for the other recommendation sections, but for the next book in the series.
+
+data.customerProfile: Dict()
+data.customerProfile.class: String("customerProfile")
+data.customerProfile.penName: String(???)
+data.customerProfile.realName: String(???)
+- seem to be full name, and first name (or perhaps any nickname).  
+- XXX Where is this from?  Amazon?  Goodreads?
+- XXX What is it used for and does it matter?  Could make it a config option to let users set what they want.  Ah, GUI seems to do exactly that.
+
+data.authorBios: Dict()
+data.authorBios.class: String("authorBio")
+data.authorBios.authors: List(Dict(class="authorBioList", asin, name, bio, imageUrl))
+
+data.authorRecs: Dict()
+data.authorRecs.class: String("authorBio")
+data.authorRecs.recommendations: List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazingRating, numberOfReviews))
+
+data.customerWhoBoughtRecs: Dict()
+data.customerWhoBoughtRecs.class = String("featuredRecommendationList")
+data.customerWhoBoughtRecs.recommendations = List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazonRating, numberOfReviews))
+
+data.publicSharedRating: OPTIONAL KINDLE-ADDS Dict()
+data.publicSharedRating.class: String("publicSharedRating")
+data.publicSharedRating.timestamp: Int(timestamp)
+data.publicSharedRating.value: Int(rating)
+
+data.rating: OPTIONAL KINDLE-ADDS Dict()
+data.rating.class: String('personalizationRating')
+data.rating.timestamp: Int(timestamp)
+data.rating.value: Int(rating)
+
+data.goodReadsReview: OPTIONAL KINDLE-ADDS Dict()
+data.goodReadsReview.class: String('goodReadsReview')
+data.goodReadsReview.rating: Int(rating)
+data.goodReadsReview.reviewId: String('NoReviewId')
+data.goodReadsReview.submissionDateMs: Int(timestamp of review in ms since epoch)
+
+#### layouts
+A list of layouts, each being a single Dict.  Seems to be two rather similar looking Dict's in my example, not sure what the difference in use is.
+
+Might be useful to look closer at this, but for now it seems that the GUI doesn't modify this at all - so could follow suit for now.
+
+XXX figure this out
+#### widgets
+A list of widgets, each being a single Dict.  Minimal set of keys is id/class/metricsTag, there are plenty of optional ones, especially where internationalised strings are used.
+
+As with 'layouts', could copy wholesale, as the GUI does.
+
+XXX figure this out
