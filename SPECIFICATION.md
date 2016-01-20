@@ -173,6 +173,7 @@ More containers, so split them out.  The keys are currentBook. welcomeText, read
 ##### `data.currentBook.title`: String(Title)
 ##### `data.currentBook.imageUrl`: String(URL)
 - same as bookInfo.imageUrl
+
 ##### `data.currentBook.hasSample`: Bool
 ##### `data.currentBook.amazonRating`: Decimal(Rating)
 ##### `data.currentBook.numberOfReviews`: Int(Rating count)
