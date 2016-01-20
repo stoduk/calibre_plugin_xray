@@ -151,16 +151,19 @@ The top level keys are all containers for a lot of information, so a section on 
 #### bookInfo
 Top level book information, all obvious
 ##### `bookInfo.asin`: String(ASIN)
-class: String("BookInfo")
-- fixed string?  Assume this is to match up with some CSS or similar.
+##### `bookInfo.class`: String("BookInfo")
 ##### `bookInfo.contentType`: String("EBOK")
 - could this be other things, eg. for audio books or videos?
+
 ##### `bookInfo.erl`: Int(-1)
-- TBC
+- ERL or -1 if ERL unknown ???
+
 ##### `bookInfo.imageUrl`: String(URL for book cover)
-- unknown if it is a specific size, colour depth, etc.  For sample book I had a 226x340 JPEG.
+- unknown if image is a specific size, colour depth, etc.  For sample book I had a 226x340 JPEG.
+
 ##### `bookInfo.refTagSuffix`: String(???)
 - TBC
+
 ##### `bookInfo.timestamp`: Int(timestamp)
 - Not sure what format this is, couldn't trivially decode in python.  Could just be used for the sort order on Kindle (ie. sort by: Recent)
 
@@ -179,7 +182,6 @@ More containers, so split them out.  The keys are currentBook. welcomeText, read
 ##### `data.currentBook.numberOfReviews`: Int(Rating count)
 ##### `data.currentBook.authors`: List(String(author)..)
 ##### `data.currentBook.class`: String("featuredRecommendation")
-- is this a CSS specifier again?
 
 #### data.welcomeText
 Hardcoded selection of text (in various language) that are shown when "About this book" feature is used.  Odd to hardcode it, and in every book!
@@ -190,24 +192,25 @@ Reading time both as numbers ("hours" and "minutes" keys), and as a set of strin
 ##### `data.readingTime.formattedTime`: Dict(country code: human readable duration)
 #### data.readingPages
 ##### `data.readingPages.class`: String("pages")
-- CSS again?
 ##### `data.readingPages.pagesInBook`: Int(pages in book)
 #### data.popularHighlightsText
 ##### `data.popularHighlightsText.class`: String("dynamicText")
-- CSS?
 ##### `data.popularHighlightsText.localizedText`: Dict(country code: human readable string)
 - eg. u'1,266 passages have been highlighted 19,446 times'
+
 #### data.authorRecs
 ##### `data.authorRecs.class`: String("recommendationList")
-- CSS?
 ##### `data.authorRecs.localizedText`: List(recommendations)
 - each entry is Dict containing asin, authors, class("recommendation"), hasSample, imageUrl, title
+
 #### data.bookDescription
 Exactly the same as data.currentBook it seems.  Always true?
+
 #### data.authorBios
 ##### `data.authorBios.authors`: List(author bios)
 - author bios is Dict containing asin, bio, class("authorBio"), imageUrl, name
 - imageUrl is 250Hx365W image
+
 ##### `data.authorBios.class`: String("authorBiosList")
 #### data.grokShelfInfo
 ##### `data.grokShelfInfo.asin`: String(ASIN)
@@ -225,40 +228,41 @@ Only one version.
 AuthorProfile.profile.{ASIN}.asc
 
 ## Contents
+### Format: JSON
 Top level keys: a, d, o, u
 
-### a
+#### a
 Value is the ASIN.
 
-### d
+#### d
 Value is a timestamp.
 
-### o
+#### o
 Value is a list of other books, each item in the list being a Dict:
 
-o.a: String(ASIN)
-o.e: hard coded integer, 1.  ??Enable flag??
-o.t: Title
+`o.a`: String(ASIN)
+`o.e`: hard coded integer, 1.  ??Enable flag??
+`o.t`: Title
 
-### u
+#### u
 Value is a list of Authors, with each item in the list being a Dict:
 
-#### a
+##### a
 Value is a string containing the Author's ASIN.
 
-#### b
+##### b
 Value is a string containing a biography of the author.
 
-#### i
+##### i
 Value is a Base64 encoded greyscale image of the author.  278 pixels high x 185 pixels wide.
 
-#### l
+##### l
 Value is a list, with each entry being a string containing the ASIN of a book.
 
-#### n
+##### n
 Value is Author's name.
 
-#### y
+##### y
 Value is an integer, the hight of the author's image.
 
 # End Actions
