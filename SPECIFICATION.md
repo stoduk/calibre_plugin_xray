@@ -240,9 +240,9 @@ Value is a timestamp.
 #### o
 Value is a list of other books, each item in the list being a Dict:
 
-`o.a`: String(ASIN)
-`o.e`: hard coded integer, 1.  ??Enable flag??
-`o.t`: Title
+##### `o.a`: String(ASIN)
+##### `o.e`: hard coded integer, 1.  ??Enable flag??
+##### `o.t`: Title
 
 #### u
 Value is a list of Authors, with each item in the list being a Dict:
