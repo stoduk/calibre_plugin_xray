@@ -150,68 +150,68 @@ The top level keys are all containers for a lot of information, so a section on 
 
 #### bookInfo
 Top level book information, all obvious
-bookInfo.asin: String(ASIN)
+#####`bookInfo.asin`: String(ASIN)
 class: String("BookInfo")
 - fixed string?  Assume this is to match up with some CSS or similar.
-bookInfo.contentType: String("EBOK")
+#####`bookInfo.contentType`: String("EBOK")
 - could this be other things, eg. for audio books or videos?
-bookInfo.erl: Int(-1)
+#####`bookInfo.erl`: Int(-1)
 - TBC
-bookInfo.imageUrl: String(URL for book cover)
+#####`bookInfo.imageUrl`: String(URL for book cover)
 - unknown if it is a specific size, colour depth, etc.  For sample book I had a 226x340 JPEG.
-bookInfo.refTagSuffix: String(???)
+#####`bookInfo.refTagSuffix`: String(???)
 - TBC
-bookInfo.timestamp: Int(timestamp)
+#####`bookInfo.timestamp`: Int(timestamp)
 - Not sure what format this is, couldn't trivially decode in python.  Could just be used for the sort order on Kindle (ie. sort by: Recent)
 
 #### data
 More containers, so split them out.  The keys are currentBook. welcomeText, readingTime, readingPages, popularHighlightsText, authorRecs, bookDescription, authorBios, grokShelfInfo
 
-##### data.currentBook
-data.currentBook.asin: String(ASIN)
-data.currentBook.description: String(Description)
-data.currentBook.title: String(Title)
-data.currentBook.imageUrl: String(URL)
+#### data.currentBook
+#####`data.currentBook.asin`: String(ASIN)
+#####`data.currentBook.description`: String(Description)
+#####`data.currentBook.title`: String(Title)
+#####`data.currentBook.imageUrl`: String(URL)
 - same as bookInfo.imageUrl
-data.currentBook.hasSample: Bool
-data.currentBook.amazonRating: Decimal(Rating)
-data.currentBook.numberOfReviews: Int(Rating count)
-data.currentBook.authors: List(String(author)..)
-data.currentBook.class: String("featuredRecommendation")
+#####`data.currentBook.hasSample`: Bool
+#####`data.currentBook.amazonRating`: Decimal(Rating)
+#####`data.currentBook.numberOfReviews`: Int(Rating count)
+#####`data.currentBook.authors`: List(String(author)..)
+#####`data.currentBook.class`: String("featuredRecommendation")
 - is this a CSS specifier again?
 
-##### data.welcomeText
+#### data.welcomeText
 Hardcoded selection of text (in various language) that are shown when "About this book" feature is used.  Odd to hardcode it, and in every book!
-##### data.readingTime
+#### data.readingTime
 Reading time both as numbers ("hours" and "minutes" keys), and as a set of strings ("formattedTime.{countrycode}")
-data.readingTime.hours: Int(hours)
-data.readingTime.minutes: Int(minutes)
-data.readingTime.formattedTime: Dict(country code: human readable duration)
-##### data.readingPages
-data.readingPages.class: String("pages")
+#####`data.readingTime.hours`: Int(hours)
+#####`data.readingTime.minutes`: Int(minutes)
+#####`data.readingTime.formattedTime`: Dict(country code: human readable duration)
+#### data.readingPages
+#####`data.readingPages.class`: String("pages")
 - CSS again?
-data.readingPages.pagesInBook: Int(pages in book)
-##### data.popularHighlightsText
-data.popularHighlightsText.class: String("dynamicText")
+#####`data.readingPages.pagesInBook`: Int(pages in book)
+#### data.popularHighlightsText
+#####`data.popularHighlightsText.class`: String("dynamicText")
 - CSS?
-data.popularHighlightsText.localizedText: Dict(country code: human readable string)
+#####`data.popularHighlightsText.localizedText`: Dict(country code: human readable string)
 - eg. u'1,266 passages have been highlighted 19,446 times'
-##### data.authorRecs
-data.authorRecs.class: String("recommendationList")
+#### data.authorRecs
+#####`data.authorRecs.class`: String("recommendationList")
 - CSS?
-data.authorRecs.localizedText: List(recommendations)
+#####`data.authorRecs.localizedText`: List(recommendations)
 - each entry is Dict containing asin, authors, class("recommendation"), hasSample, imageUrl, title
-##### data.bookDescription
+#### data.bookDescription
 Exactly the same as data.currentBook it seems.  Always true?
-##### data.authorBios
-data.authorBios.authors: List(author bios)
+#### data.authorBios
+#####`data.authorBios.authors`: List(author bios)
 - author bios is Dict containing asin, bio, class("authorBio"), imageUrl, name
 - imageUrl is 250Hx365W image
-data.authorBios.class: String("authorBiosList")
-##### data.grokShelfInfo
-data.grokShelfInfo.asin: String(ASIN)
-data.grokShelfInfo.class: String("goodReadsShelfInfo")
-data.grokShelfInfo.shelves: List(String(shelf))
+#####`data.authorBios.class`: String("authorBiosList")
+#### data.grokShelfInfo
+#####`data.grokShelfInfo.asin`: String(ASIN)
+#####`data.grokShelfInfo.class`: String("goodReadsShelfInfo")
+#####`data.grokShelfInfo.shelves`: List(String(shelf))
 - eg. "to-read"
 
 # Author Profile
