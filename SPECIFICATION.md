@@ -295,46 +295,46 @@ Data for this book and other related books (either recommendations, or cited boo
 
 All the rating related data should not be added, as the device will add it when a rating is given (indeed, prepopulating it with rating information using Amazon's average rating is perhaps both confusing and *may* interfere with submitting your own rating).
 
-data.nextBook: OPTIONAL Dict(???)
+`data.nextBook`: OPTIONAL Dict(???)
 - was empty in my example.  Does this link to next book in series in bookshop?  Or perhaps it could even open the next one on the device.
 - XXX need to find an example where this works..
 - GUI handles this, I imagine it is dumping an entry as for the other recommendation sections, but for the next book in the series.
 
-data.customerProfile: Dict()
-data.customerProfile.class: String("customerProfile")
-data.customerProfile.penName: String(???)
-data.customerProfile.realName: String(???)
+`data.customerProfile`: Dict()
+`data.customerProfile.class`: String("customerProfile")
+`data.customerProfile.penName`: String(???)
+`data.customerProfile.realName`: String(???)
 - seem to be full name, and first name (or perhaps any nickname).  
 - XXX Where is this from?  Amazon?  Goodreads?
 - XXX What is it used for and does it matter?  Could make it a config option to let users set what they want.  Ah, GUI seems to do exactly that.
 
-data.authorBios: Dict()
-data.authorBios.class: String("authorBio")
-data.authorBios.authors: List(Dict(class="authorBioList", asin, name, bio, imageUrl))
+`data.authorBios`: Dict()
+`data.authorBios.class`: String("authorBio")
+`data.authorBios.authors`: List(Dict(class="authorBioList", asin, name, bio, imageUrl))
 
-data.authorRecs: Dict()
-data.authorRecs.class: String("authorBio")
-data.authorRecs.recommendations: List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazingRating, numberOfReviews))
+`data.authorRecs`: Dict()
+`data.authorRecs.class`: String("authorBio")
+`data.authorRecs.recommendations`: List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazingRating, numberOfReviews))
 
-data.customerWhoBoughtRecs: Dict()
-data.customerWhoBoughtRecs.class = String("featuredRecommendationList")
-data.customerWhoBoughtRecs.recommendations = List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazonRating, numberOfReviews))
+`data.customerWhoBoughtRecs`: Dict()
+`data.customerWhoBoughtRecs.class` = String("featuredRecommendationList")
+`data.customerWhoBoughtRecs.recommendations` = List(Dict(class="featuredRecommendation", asin, title, authors[], imageUrl, hasSample, description, amazonRating, numberOfReviews))
 
-data.publicSharedRating: OPTIONAL KINDLE-ADDS Dict()
-data.publicSharedRating.class: String("publicSharedRating")
-data.publicSharedRating.timestamp: Int(timestamp)
-data.publicSharedRating.value: Int(rating)
+`data.publicSharedRating`: OPTIONAL KINDLE-ADDS Dict()
+`data.publicSharedRating.class`: String("publicSharedRating")
+`data.publicSharedRating.timestamp`: Int(timestamp)
+`data.publicSharedRating.value`: Int(rating)
 
-data.rating: OPTIONAL KINDLE-ADDS Dict()
-data.rating.class: String('personalizationRating')
-data.rating.timestamp: Int(timestamp)
-data.rating.value: Int(rating)
+`data.rating`: OPTIONAL KINDLE-ADDS Dict()
+`data.rating.class`: String('personalizationRating')
+`data.rating.timestamp`: Int(timestamp)
+`data.rating.value`: Int(rating)
 
-data.goodReadsReview: OPTIONAL KINDLE-ADDS Dict()
-data.goodReadsReview.class: String('goodReadsReview')
-data.goodReadsReview.rating: Int(rating)
-data.goodReadsReview.reviewId: String('NoReviewId')
-data.goodReadsReview.submissionDateMs: Int(timestamp of review in ms since epoch)
+`data.goodReadsReview`: OPTIONAL KINDLE-ADDS Dict()
+`data.goodReadsReview.class`: String('goodReadsReview')
+`data.goodReadsReview.rating`: Int(rating)
+`data.goodReadsReview.reviewId`: String('NoReviewId')
+`data.goodReadsReview.submissionDateMs`: Int(timestamp of review in ms since epoch)
 
 #### layouts
 A list of layouts, each being a single Dict.  Seems to be two rather similar looking Dict's in my example, not sure what the difference in use is.
