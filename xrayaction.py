@@ -606,8 +606,6 @@ class XRayBuilder(object):
             'locs': [[100,100,100,5]] \
             } )
 
-        # TODO: need to assign to data.characters afterwards?
-        sorted(data.characters, key=lambda char: char.term)
         for c in data.characters:
             key   = c.term
             value = c.desc
@@ -626,8 +624,6 @@ class XRayBuilder(object):
             'locs': locs \
             } )
 
-        # TODO is this right? aren't we discarding the results of the sort?
-        sorted(data.topics, key=lambda topic: topic.term)
         for t in data.topics:
             key   = t.term
             value = t.desc
