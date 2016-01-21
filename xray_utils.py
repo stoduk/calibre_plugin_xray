@@ -25,3 +25,44 @@ class OrderedDefaultdict(OrderedDict):
     def __reduce__(self):  # optional, for pickle support
         args = (self.default_factory,) if self.default_factory else ()
         return self.__class__, args, None, None, self.iteritems()
+    
+class XRayLogfile(object):
+    #
+    # Wrapper object for logging - but can either point to a file-type object, or can be a no-op dummy.
+    #
+    # This lets us litter the code with calls to eg. logfile.write() without having to care if they do anything
+    def __init__(self, logfile):
+        self.logfile, self.fd = None, None
+        
+        self.switch_logfile(logfile)
+    def write(self, data):
+        if self.fd:
+            self.fd.write(data)
+    def writeln(self, data):
+        #
+        # A convenience function, prints 'data' followed by a newline.
+        #
+        if self.fd:
+            self.fd.write(data)
+            self.fd.write("\n")
+    def close(self):
+        if self.fd:
+            self.fd.close()
+    def flush(self):
+        if self.fd:
+            self.fd.flush()
+    def switch_logfile(self, new_logfile):
+        #
+        # Switch between the current logfile and a new one.  
+        #
+        # Both can be either the name of a file or an empty string 
+        # (an empty string equates to no logging, in which case
+        # XRayLogfile will just throw the logging away silently)
+        #
+        if self.fd:
+            self.fd.close()
+        self.logfile = new_logfile
+        if new_logfile:
+            self.fd = open(self.logfile, "a")
+        else:
+            self.fd = None    

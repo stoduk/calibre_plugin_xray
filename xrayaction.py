@@ -42,48 +42,8 @@ from calibre.utils.ipc.job import BaseJob
 from calibre_plugins.xray_generator.xray_ui import Ui_XRay
 from calibre_plugins.xray_generator.xray_config import prefs
 import calibre_plugins.xray_generator.lib.kindleunpack as _ku
-from calibre_plugins.xray_generator.xray_utils import OrderedDefaultdict
+from calibre_plugins.xray_generator.xray_utils import OrderedDefaultdict, XRayLogfile
 
-class XRayLogfile(object):
-    #
-    # Wrapper object for logging - but can either point to a file-type object, or can be a no-op dummy.
-    #
-    # This lets us litter the code with calls to eg. logfile.write() without having to care if they do anything
-    def __init__(self, logfile):
-        self.logfile, self.fd = None, None
-        
-        self.switch_logfile(logfile)
-    def write(self, data):
-        if self.fd:
-            self.fd.write(data)
-    def writeln(self, data):
-        #
-        # A convenience function, prints 'data' followed by a newline.
-        #
-        if self.fd:
-            self.fd.write(data)
-            self.fd.write("\n")
-    def close(self):
-        if self.fd:
-            self.fd.close()
-    def flush(self):
-        if self.fd:
-            self.fd.flush()
-    def switch_logfile(self, new_logfile):
-        #
-        # Switch between the current logfile and a new one.  
-        #
-        # Both can be either the name of a file or an empty string 
-        # (an empty string equates to no logging, in which case
-        # XRayLogfile will just throw the logging away silently)
-        #
-        if self.fd:
-            self.fd.close()
-        self.logfile = new_logfile
-        if new_logfile:
-            self.fd = open(self.logfile, "a")
-        else:
-            self.fd = None
 logfile = XRayLogfile(prefs["logfile"])
 
 class XRayAction(InterfaceAction):
@@ -529,67 +489,14 @@ class XRayBuilder(object):
         return result
 
     def write_xray(self, mobi_file_path, xraydir, asin, database, uniqid, data, job, newFormat):
-
-        asJson = { 'asin' : asin, 'guid' : database +':'+ re.sub ('L$', '', str(hex(uniqid)[2:]).upper()), 'version': '1', 'terms': [] }
-
-        if data.wikiUrl != '' :
-            asJson['terms'].append ( {'type' : 'topic', 'term' : 'Wikipedia Info', \
-            'desc': str(data.wikiText), 'descSrc':'wiki', 'descUrl': str(data.wikiUrl), \
-            'locs': [[100,100,100,5]] \
-            } )
-
-        # TODO: need to assign to data.characters afterwards?
-        sorted(data.characters, key=lambda char: char.term)
-        for c in data.characters:
-            key   = c.term
-            value = c.desc
-            locs  = c.locs
-            url   = c.url
-
-            if (url == ''):
-                url = 'http://www.shelfari.com/characters/' + self.wikireplace(key)
-
-            if (len(locs) == 0):
-                locs = [[100,100,100,6]]
-                job.log_write("WARNING: Didn't find any matches for " + c.term + ". Consider creating aliases to resolve this.\n");
-
-            asJson['terms'].append ( {'type' : 'character', 'term' : key, \
-            'desc': value.strip(), 'descSrc':'shelfari', 'descUrl': url, \
-            'locs': locs \
-            } )
-
-        # TODO is this right? aren't we discarding the results of the sort?
-        sorted(data.topics, key=lambda topic: topic.term)
-        for t in data.topics:
-            key   = t.term
-            value = t.desc
-            locs  = t.locs
-            url   = t.url
-
-            if (len(locs) == 0):
-                locs = [[100,100,100,6]]
-
-            asJson['terms'].append ( {'type' : 'topic', 'term' : key.strip(), \
-            'desc': value.strip(), 'descSrc':'shelfari', 'descUrl': url, \
-            'locs': locs \
-            } )
-
-        if (len(data.chapters) == 0):
-            asJson['chapters'] = [ { 'name': 'null', 'start' : 1, 'end' : data.end } ]
-        else:
-            asJson['chapters'] = data.chapters
-
-        asJson['srl'] = 1
-        asJson['erl'] = data.end
-
         xrayfile = os.path.join (xraydir, "XRAY.entities." + asin + ".asc")
 
         if newFormat:
-            self.write_sqlite (job, xrayfile, data, asJson)
+            self._write_sqlite (job, xrayfile, data)
         else:
-            self.write_json (job, xrayfile, data, asJson)
+            self._write_json (job, xrayfile, data)
 
-    def write_sqlite(self, job, xrayfile, data, asJson):
+    def _write_sqlite(self, job, xrayfile, data):
         import sqlite3
         import codecs
         # remove the file before starting so that we don't try to try and old-format file as an sqlite file
@@ -634,6 +541,8 @@ class XRayBuilder(object):
                     personCount += 1
                 else:
                     termCount += 1
+                if len(character.locs) == 0:
+                    job.log_write("WARNING: Didn't find any matches for " + c.term + ". Consider creating aliases to resolve this.\n");
 
                 cur.execute ( "insert into entity (id, label, loc_label, type, count, has_info_card) values (?, ?, null, ?, ?, 1);",
                     ( character.id,
@@ -685,10 +594,62 @@ class XRayBuilder(object):
             cur.execute ( "insert into book_metadata (srl, erl, has_images, has_excerpts, show_spoilers_default, num_people, num_terms, num_images, preview_images) " +
                           "values (?, ?, 0, 1, 0, ?, ?, 0, null);",
                           ( 1, data.end, personCount, termCount ));
-            
 
-    def write_json(self, job, xrayfile, data, asJson):
+    def _write_json(self, job, xrayfile, data):
         import json
+        
+        asJson = { 'asin' : asin, 'guid' : database +':'+ re.sub ('L$', '', str(hex(uniqid)[2:]).upper()), 'version': '1', 'terms': [] }
+
+        if data.wikiUrl != '' :
+            asJson['terms'].append ( {'type' : 'topic', 'term' : 'Wikipedia Info', \
+            'desc': str(data.wikiText), 'descSrc':'wiki', 'descUrl': str(data.wikiUrl), \
+            'locs': [[100,100,100,5]] \
+            } )
+
+        # TODO: need to assign to data.characters afterwards?
+        sorted(data.characters, key=lambda char: char.term)
+        for c in data.characters:
+            key   = c.term
+            value = c.desc
+            locs  = c.locs
+            url   = c.url
+
+            if (url == ''):
+                url = 'http://www.shelfari.com/characters/' + self.wikireplace(key)
+
+            if (len(locs) == 0):
+                locs = [[100,100,100,6]] # ARTWTF do we a always need a single value?  Or is this some old testing code?
+                job.log_write("WARNING: Didn't find any matches for " + c.term + ". Consider creating aliases to resolve this.\n");
+
+            asJson['terms'].append ( {'type' : 'character', 'term' : key, \
+            'desc': value.strip(), 'descSrc':'shelfari', 'descUrl': url, \
+            'locs': locs \
+            } )
+
+        # TODO is this right? aren't we discarding the results of the sort?
+        sorted(data.topics, key=lambda topic: topic.term)
+        for t in data.topics:
+            key   = t.term
+            value = t.desc
+            locs  = t.locs
+            url   = t.url
+
+            if (len(locs) == 0):
+                locs = [[100,100,100,6]] # ARTWTF question as above..
+
+            asJson['terms'].append ( {'type' : 'topic', 'term' : key.strip(), \
+            'desc': value.strip(), 'descSrc':'shelfari', 'descUrl': url, \
+            'locs': locs \
+            } )
+
+        if (len(data.chapters) == 0):
+            asJson['chapters'] = [ { 'name': 'null', 'start' : 1, 'end' : data.end } ]
+        else:
+            asJson['chapters'] = data.chapters
+
+        asJson['srl'] = 1
+        asJson['erl'] = data.end
+        
         with open(xrayfile, 'wb') as xrayf:
             xrayf.write(json.dumps (asJson, separators=(',', ':')))
 
