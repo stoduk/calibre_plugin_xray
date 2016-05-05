@@ -288,11 +288,12 @@ Data for this current book, no other books are referenced, some external data is
 bookinfo.class: String("bookInfo")
 bookinfo.asin: String(ASIN)
 bookinfo.contentType: String("EBOK")
-bookinfo.timestampe: Int(timestamp)
+bookinfo.timestamp: Int(timestamp)
 bookinfo.regTagSuffix: String(???)
 bookinfo.imageUrl: String(image url)
-bookinfo.embeddedId: String("{database name}:{ASIN}")
+bookinfo.embeddedId: String("{database name}:{unique id}")
 - example: "A_Christmas_Carol:BA862274"
+- database name and unique ID are both from the MOBI file (unique ID is not ASIN, some just look a bit like them).  Not sure what happens if these values don't match what a kindle edition would have..
 bookinfo.erl: Int(erl)
 
 #### data
