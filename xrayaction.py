@@ -1176,8 +1176,7 @@ class XRayData(object):
                         character.searchFor = re.compile('(^|\W)(' + "|".join ( [ re.escape(a) for a in searchItems ] )  + ')(\W|$)', flags=re.IGNORECASE )
                         searchFor = character.searchFor
 
-                    match = searchFor.search (ptext)
-                    if match is not None:
+                    for match in searchFor.finditer(ptext):
                         #
                         # If the string is unicode then any index (eg. from match.start()) will be in unicode
                         # characters.  Kindle offsets are bytes, so we need to convert this to the length in bytes.
