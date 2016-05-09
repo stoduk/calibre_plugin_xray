@@ -542,7 +542,7 @@ class XRayBuilder(object):
                 else:
                     termCount += 1
                 if len(character.locs) == 0:
-                    job.log_write("WARNING: Didn't find any matches for " + c.term + ". Consider creating aliases to resolve this.\n");
+                    job.log_write("WARNING: Didn't find any matches for " + character.term + ". Consider creating aliases to resolve this.\n");
 
                 cur.execute ( "insert into entity (id, label, loc_label, type, count, has_info_card) values (?, ?, null, ?, ?, 1);",
                     ( character.id,
@@ -990,6 +990,8 @@ class XRayData(object):
             job.log_write("ERROR: have probable duplicate characters (%s vs. %s)")
             return
         
+        # key is each potential alias (forced to lower case to avoid eg. Ghost and ghost being considered different)
+        # value is (real_alias, char) - where real_alias is the unmodified potential alias (before lowercase ajustment) and char is the character object
         potential_aliases = OrderedDefaultdict(list)
         
         for char in self.characters:
@@ -1001,7 +1003,7 @@ class XRayData(object):
             real_name_aliases = self.fullname_to_possible_aliases(name)
             for alias in real_name_aliases:
                 if alias != name:
-                    potential_aliases[alias].append(char)
+                    potential_aliases[alias.lower()].append((alias, char))
             for alias in char.unprocessed_aliases:
                 for found_alias in self.fullname_to_possible_aliases(alias):
                     if not found_alias in real_name_aliases:
@@ -1009,16 +1011,16 @@ class XRayData(object):
                         # the two "Jane" too be clashing, and exclude them later - so skip one now
                         # (and only exclude if it clashes with a separate character)
                         # ARTTBD - how much do we care about the ordering here?  Could just create a set (to get uniqueness) then sort by longest first
-                        potential_aliases[found_alias].append(char)
+                        potential_aliases[found_alias.lower()].append((found_alias, char))
             char.unprocessed_aliases = []
         
         for alias in potential_aliases:
             if len(potential_aliases[alias]) == 1:
-                char = potential_aliases[alias][0]
-                job.log_write("Unique alias: %s for %s\n" % (alias, potential_aliases[alias][0].term))
-                char.addAliases([alias])
+                real_alias, char = potential_aliases[alias][0]
+                job.log_write("Unique alias: %s for %s\n" % (real_alias, char.term))
+                char.addAliases([real_alias])
             else:
-                job.log_write("INFO: Duplicate alias, ignore both: [%s] for %s\n" % (alias, ",".join([x.term for x in potential_aliases[alias]])))
+                job.log_write("INFO: Duplicate alias, ignore for all: [%s] for %s\n" % (alias, ",".join([y.term for x, y in potential_aliases[alias]])))
                                     
     def processAliases (self, job, aliasFile):
         if aliasFile is not None and aliasFile != '':
@@ -1139,7 +1141,11 @@ class XRayData(object):
             for p in paras:
                 # TODO skip if chapter empty
 
-                ptext = (p.text or '') + ''.join([html.tostring(child, encoding='utf-8') for child in p.iterdescendants()])
+                # 
+                # We can't perfectly reconstruct the original HTML from the parsed document - so this will be an approximation
+                # eg. <a someattr=foobar> will be parsed corrected, but html.tostring will quote the value (ie. <a someattr="foobar">) so affecting our calculations
+                #
+                ptext = (p.text or '') + ''.join([html.tostring(child, encoding='utf-8') for child in p.iterchildren()])
                 ptext_bytestream = ptext.encode('utf-8')
                 #job.log_write(str(ix) + ":" + ptext + "\n")
 
@@ -1266,12 +1272,19 @@ class ParserWithPosition(HTMLParser):
     def __init__(self):
         HTMLParser.__init__(self)
         self.ppos = []
-        self.lastWasP = False
+        self.lastWasP = False 
+            # ART: I can't see why we need to track this - we care about where
+            # a <p>'s contents start (ie. after any attributes for that block), 
+            # which we can (only?) tell when the <p> tag starts.
+            # It shouldn't be valid to nest <p> but we should barf if we see that.
 
     def handle_starttag(self, tag, attrs):
         if (tag == 'p'):
-            #print ("handle_starttag p " + str(self.getpos()[1]))
-            self.lastWasP = True
+            #print ("handle_starttag p %s + %s = %s" % (self.getpos()[1], len(self.get_starttag_text()), self.getpos()[1] + len(self.get_starttag_text())))
+            self.lastWasP = False # ART: why not just store the <p> start location (plus <p> tag length) when we see it, rather than when it closes or when we get some 'data' (text)?
+                                  #      No reason I can see!  I'm tempted to just use this parser for everything, as we could then stick with the original HTML rather than parsed version.
+            
+            self.ppos.append(self.getpos()[1] + len(self.get_starttag_text()))
 
     def handle_endtag(self, tag):
         if (tag == 'p'):
