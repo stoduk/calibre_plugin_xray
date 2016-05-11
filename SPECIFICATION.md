@@ -289,7 +289,7 @@ Data for this current book, no other books are referenced, some external data is
 ##### bookinfo.asin: String(ASIN)
 ##### bookinfo.contentType: String("EBOK")
 ##### bookinfo.timestamp: Int(timestamp)
-##### bookinfo.regTagSuffix: String(???)
+##### bookinfo.refTagSuffix: String(???)
 ##### bookinfo.imageUrl: String(image url)
 ##### bookinfo.embeddedId: String("{database name}:{unique id}")
 - example: "A_Christmas_Carol:BA862274"
