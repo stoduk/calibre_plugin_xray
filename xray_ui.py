@@ -30,82 +30,123 @@ class Ui_XRay(object):
     def setupUi(self, XRay):
         XRay.setObjectName(_fromUtf8("XRay"))
         XRay.resize(507, 387)
-        self.gridLayout_9 = QtGui.QGridLayout(XRay)
-        self.gridLayout_9.setObjectName(_fromUtf8("gridLayout_9"))
-        self.gridLayout_6 = QtGui.QGridLayout()
-        self.gridLayout_6.setObjectName(_fromUtf8("gridLayout_6"))
+        
+        # Window is setup with a main grid, in to which
+        # one sub-grid is added for each item
+        # (where an item is typically a label on one line, 
+        #  then an edit box on the next, optionally with a button)
+        # Could make it all one grid, but this perhaps makes some sense..
+        
+        # gridLayoutMain - grid for the whole window
+        self.gridLayoutMain = QtGui.QGridLayout(XRay)
+        self.gridLayoutMain.setObjectName(_fromUtf8("gridLayoutMain"))
+        
+        # gridLayout1 - Directory for saving X-Ray file
+        self.gridLayout1 = QtGui.QGridLayout()
+        self.gridLayout1.setObjectName(_fromUtf8("gridLayout1"))
+        self.gridLayoutMain.addLayout(self.gridLayout1, 0, 0, 1, 1)
+
         self.xrayDirEdit = QtGui.QLineEdit(XRay)
         self.xrayDirEdit.setObjectName(_fromUtf8("xrayDirEdit"))
-        self.gridLayout_6.addWidget(self.xrayDirEdit, 1, 0, 1, 1)
+        self.gridLayout1.addWidget(self.xrayDirEdit, 1, 0, 1, 1)
+        
         self.label_6 = QtGui.QLabel(XRay)
         self.label_6.setObjectName(_fromUtf8("label_6"))
-        self.gridLayout_6.addWidget(self.label_6, 0, 0, 1, 1)
+        self.gridLayout1.addWidget(self.label_6, 0, 0, 1, 1)
+        
         self.xrayBrowseButton = QtGui.QPushButton(XRay)
         self.xrayBrowseButton.setObjectName(_fromUtf8("xrayBrowseButton"))
-        self.gridLayout_6.addWidget(self.xrayBrowseButton, 1, 1, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_6, 0, 0, 1, 1)
-        self.gridLayout = QtGui.QGridLayout()
-        self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
+        self.gridLayout1.addWidget(self.xrayBrowseButton, 1, 1, 1, 1)
+        
+        
+        # gridLayout2 - Shelfari URL
+        self.gridLayout2 = QtGui.QGridLayout()
+        self.gridLayout2.setObjectName(_fromUtf8("gridLayout2"))
+        self.gridLayoutMain.addLayout(self.gridLayout2, 1, 0, 1, 1)
+
         self.label = QtGui.QLabel(XRay)
         self.label.setObjectName(_fromUtf8("label"))
-        self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
+        self.gridLayout2.addWidget(self.label, 0, 0, 1, 1)
+        
         self.shelfariEdit = QtGui.QLineEdit(XRay)
         self.shelfariEdit.setObjectName(_fromUtf8("shelfariEdit"))
-        self.gridLayout.addWidget(self.shelfariEdit, 1, 0, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout, 1, 0, 1, 1)
-        self.gridLayout_2 = QtGui.QGridLayout()
-        self.gridLayout_2.setObjectName(_fromUtf8("gridLayout_2"))
+        self.gridLayout2.addWidget(self.shelfariEdit, 1, 0, 1, 1)
+        
+        # gridLayout3 - Wikipedia URL
+        self.gridLayout3 = QtGui.QGridLayout()
+        self.gridLayout3.setObjectName(_fromUtf8("gridLayout3"))
+        self.gridLayoutMain.addLayout(self.gridLayout3, 2, 0, 1, 1)
+
         self.wikipediaEdit = QtGui.QLineEdit(XRay)
         self.wikipediaEdit.setObjectName(_fromUtf8("wikipediaEdit"))
-        self.gridLayout_2.addWidget(self.wikipediaEdit, 1, 0, 1, 1)
+        self.gridLayout3.addWidget(self.wikipediaEdit, 1, 0, 1, 1)
+
         self.label_2 = QtGui.QLabel(XRay)
         self.label_2.setObjectName(_fromUtf8("label_2"))
-        self.gridLayout_2.addWidget(self.label_2, 0, 0, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_2, 2, 0, 1, 1)
-        self.gridLayout_5 = QtGui.QGridLayout()
-        self.gridLayout_5.setObjectName(_fromUtf8("gridLayout_5"))
+        self.gridLayout3.addWidget(self.label_2, 0, 0, 1, 1)
+
+        # gridLayout4 - Unpack directory
+        self.gridLayout4 = QtGui.QGridLayout()
+        self.gridLayout4.setObjectName(_fromUtf8("gridLayout4"))
+        self.gridLayoutMain.addLayout(self.gridLayout4, 3, 0, 1, 1)
+        
         self.label_5 = QtGui.QLabel(XRay)
         self.label_5.setObjectName(_fromUtf8("label_5"))
-        self.gridLayout_5.addWidget(self.label_5, 0, 0, 1, 1)
+        self.gridLayout4.addWidget(self.label_5, 0, 0, 1, 1)
+        
         self.unpackDirEdit = QtGui.QLineEdit(XRay)
         self.unpackDirEdit.setObjectName(_fromUtf8("unpackDirEdit"))
-        self.gridLayout_5.addWidget(self.unpackDirEdit, 1, 0, 1, 1)
+        self.gridLayout4.addWidget(self.unpackDirEdit, 1, 0, 1, 1)
+        
         self.unpackBrowseButton = QtGui.QPushButton(XRay)
         self.unpackBrowseButton.setObjectName(_fromUtf8("unpackBrowseButton"))
-        self.gridLayout_5.addWidget(self.unpackBrowseButton, 1, 1, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_5, 3, 0, 1, 1)
-        self.gridLayout_3 = QtGui.QGridLayout()
-        self.gridLayout_3.setObjectName(_fromUtf8("gridLayout_3"))
+        self.gridLayout4.addWidget(self.unpackBrowseButton, 1, 1, 1, 1)
+        
+        # gridLayout5 - offset
+        self.gridLayout5 = QtGui.QGridLayout()
+        self.gridLayout5.setObjectName(_fromUtf8("gridLayout5"))
+        self.gridLayoutMain.addLayout(self.gridLayout5, 4, 0, 1, 1)
+
         self.label_3 = QtGui.QLabel(XRay)
         self.label_3.setObjectName(_fromUtf8("label_3"))
-        self.gridLayout_3.addWidget(self.label_3, 0, 0, 1, 1)
+        self.gridLayout5.addWidget(self.label_3, 0, 0, 1, 1)
+
         self.offsetEdit = QtGui.QLineEdit(XRay)
         self.offsetEdit.setObjectName(_fromUtf8("offsetEdit"))
-        self.gridLayout_3.addWidget(self.offsetEdit, 1, 0, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_3, 4, 0, 1, 1)
-        self.gridLayout_4 = QtGui.QGridLayout()
-        self.gridLayout_4.setObjectName(_fromUtf8("gridLayout_4"))
+        self.gridLayout5.addWidget(self.offsetEdit, 1, 0, 1, 1)
+        
+        # gridLayout6  - 
+        self.gridLayout6 = QtGui.QGridLayout()
+        self.gridLayout6.setObjectName(_fromUtf8("gridLayout6"))
+        self.gridLayoutMain.addLayout(self.gridLayout6, 5, 0, 1, 1)
+
         self.aliasesEdit = QtGui.QLineEdit(XRay)
         self.aliasesEdit.setObjectName(_fromUtf8("aliasesEdit"))
-        self.gridLayout_4.addWidget(self.aliasesEdit, 1, 0, 1, 1)
+        self.gridLayout6.addWidget(self.aliasesEdit, 1, 0, 1, 1)
+
         self.label_4 = QtGui.QLabel(XRay)
         self.label_4.setObjectName(_fromUtf8("label_4"))
-        self.gridLayout_4.addWidget(self.label_4, 0, 0, 1, 1)
+        self.gridLayout6.addWidget(self.label_4, 0, 0, 1, 1)
+        
         self.aliasBrowseButton = QtGui.QPushButton(XRay)
         self.aliasBrowseButton.setObjectName(_fromUtf8("aliasBrowseButton"))
-        self.gridLayout_4.addWidget(self.aliasBrowseButton, 1, 1, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_4, 5, 0, 1, 1)
-        self.gridLayout_8 = QtGui.QGridLayout()
-        self.gridLayout_8.setObjectName(_fromUtf8("gridLayout_8"))
+        self.gridLayout6.addWidget(self.aliasBrowseButton, 1, 1, 1, 1)
+        
+        # gridLayout7 - new/old format checkbox
+        self.gridLayout7 = QtGui.QGridLayout()
+        self.gridLayout7.setObjectName(_fromUtf8("gridLayout7"))
+        self.gridLayoutMain.addLayout(self.gridLayout7, 6, 0, 1, 1)
+        
         self.newFormatCheckbox = QtGui.QCheckBox(XRay)
         self.newFormatCheckbox.setObjectName(_fromUtf8("newFormatCheckbox"))
-        self.gridLayout_8.addWidget(self.newFormatCheckbox, 2, 0, 1, 1)
-        self.gridLayout_9.addLayout(self.gridLayout_8, 6, 0, 1, 1)
+        self.gridLayout7.addWidget(self.newFormatCheckbox, 2, 0, 1, 1)
+        
+        # OK/cancel buttons
         self.buttonBox = QtGui.QDialogButtonBox(XRay)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
         self.buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Cancel|QtGui.QDialogButtonBox.Ok)
         self.buttonBox.setObjectName(_fromUtf8("buttonBox"))
-        self.gridLayout_9.addWidget(self.buttonBox, 7, 0, 1, 1)
+        self.gridLayoutMain.addWidget(self.buttonBox, 7, 0, 1, 1)
 
         self.retranslateUi(XRay)
         #QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL(_fromUtf8("accepted()")), XRay.accept)
