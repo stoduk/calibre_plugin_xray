@@ -19,7 +19,7 @@ class ConfigWidget(QWidget):
         self.l = QGridLayout()
         self.setLayout(self.l)
 
-        self.newFormatCheckboxLabel = QLabel('Generate &new format data (SQLite3)')
+        self.newFormatCheckboxLabel = QLabel('Generate new format data (SQLite3)')
         self.l.addWidget(self.newFormatCheckboxLabel, 0, 0, 1, 1)
         self.newFormatCheckbox = QCheckBox(self)
         self.l.addWidget(self.newFormatCheckbox, 0, 1, 1, 1)
